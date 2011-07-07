@@ -11,7 +11,7 @@ ASFLAGS = $(CFLAGS)
 BUILD_PRX = 1
 
 USE_PSPSDK_LIBC = 1
-#LIBS = -lpspaudio -lpspaudiocodec -lpspgu -lpsphttp -lpspssl -lpspjpeg
+LIBS = -lpspaudio -lpspaudiocodec
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak
 

@@ -1,4 +1,6 @@
 #include <pspkernel.h>
+#include <pspaudio.h>
+#include <psputility.h>
 #include <stdio.h>
 #include "acodec.h"
 #include "demuxer.h"
@@ -6,30 +8,26 @@
 
 PSP_MODULE_INFO("OpenTube.codec.aac",0,0,0);
 OpenTube*ot;
+Acodec a;
 
 char*load(){
-	puts("aload");
-	/*
-	me.aucd.freq=f.hz;
-	me.chan=sceAudioChReserve(PSP_AUDIO_NEXT_CHANNEL,PSP_AUDIO_SAMPLE_ALIGN(1024),PSP_AUDIO_FORMAT_STEREO);
-	if(sceAudiocodecCheckNeedMem(&me.aucd, PSP_CODEC_AAC)<0)puts("chekmem");
-	if(sceAudiocodecGetEDRAM(&me.aucd, PSP_CODEC_AAC)<0)puts("getEDRAM");
-	if(sceAudiocodecInit(&me.aucd, PSP_CODEC_AAC)<0)puts("ACodIni");
-	*/
+	a.au.freq=ot->dmx->Ahz;
+	a.chan=sceAudioChReserve(PSP_AUDIO_NEXT_CHANNEL,PSP_AUDIO_SAMPLE_ALIGN(1024),PSP_AUDIO_FORMAT_STEREO);
+	if(sceAudiocodecCheckNeedMem(&a.au, PSP_CODEC_AAC)<0)return "chekmem";
+	if(sceAudiocodecGetEDRAM(&a.au, PSP_CODEC_AAC)<0)return "getEDRAM";
+	if(sceAudiocodecInit(&a.au, PSP_CODEC_AAC))return "cdcInit";
 	return NULL;
 }
+unsigned out[2][1024*2] __attribute__((aligned(64)));
 char*play(){
-	puts("aplay");
-/*
-	unsigned out[2][1024*2] __attribute__((aligned(64)));
-	for(int s=0;(s<f.AstszLen)&&(!(pad()));s++){
-		me.aucd.src=getASample(s);
-		me.aucd.srcLen=f.Astsz[s];
-		me.aucd.dst=out[s%2];
-		sceAudiocodecDecode(&me.aucd,PSP_CODEC_AAC);
-		sceAudioOutputBlocking(me.chan, PSP_AUDIO_VOLUME_MAX,out[s%2]);
+	for(int s=0;s<ot->dmx->f->AstszLen;s++){
+		a.au.src=ot->dmx->getASample(s);
+		a.au.srcLen=ot->dmx->f->Astsz[s];
+		a.au.dst=out[s%2];
+		sceAudiocodecDecode(&a.au,PSP_CODEC_AAC);
+		sceAudioOutputBlocking(a.chan, PSP_AUDIO_VOLUME_MAX,out[s%2]);
+//		if(s>60)return NULL;
 	}
-*/
 	return NULL;
 }
 char*seek(int t,int o){
@@ -43,13 +41,13 @@ int unload(SceSize args,void*argp){
 }
 char*stop(){
 	puts("astop");
-//	if(me.aucd.EDRAM)sceAudiocodecReleaseEDRAM(&me.aucd);
-//	if(me.chan)sceAudioChRelease(me.chan);
+	if(a.au.EDRAM)sceAudiocodecReleaseEDRAM(&a.au);
+	if(a.chan)sceAudioChRelease(a.chan);
 	ot->dmx->Aload=NULL;
 	ot->dmx->Aplay=NULL;
 	ot->dmx->Aseek=NULL;
 	ot->dmx->Astop=NULL;
-	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x10000,0,0),0,NULL);//to be unable to return
+	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x1000,0,0),0,NULL);//to be unable to return
 	return NULL;
 }
 

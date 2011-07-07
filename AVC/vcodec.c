@@ -8,16 +8,14 @@
 #include "vcodec.h"
 #include "demuxer.h"
 #include "main.h"
-#include "bridge.h"
 
 PSP_MODULE_INFO("OpenTube.codec.h264",0,0,0);
 OpenTube*ot;
 Vcodec v;
+
 void* swapBuffer(){
-//	puts("delay");
-	while(sceKernelGetSystemTimeWide()<v.next){
+	while((sceKernelGetSystemTimeWide())<v.next)
 		sceDisplayWaitVblankStart();
-	}
 	v.next+=v.delay;
 //	return (void*)lcd.disp;//+lcd.vram
 	if(++ot->lcd->curr%2){
@@ -45,7 +43,6 @@ char* load(){
 	v.modmpg=ot->sys->modload("flash0:/kd/mpeg_vsh.prx");
 	if(!ot->me->pool)return("noPool");
 	if(sceMpegInit())return("MpegIni");
-//	printf("<<<< %i\n",ot->me->mode);
 	if( (ot->me->buffLen=sceMpegQueryMemSize(ot->me->mode))<0)return("noMemSz");
 	if(!(ot->me->buffLen&0xF))ot->me->buffLen=(ot->me->buffLen&0xFFFFFFF0)+16;
 	if(!(ot->me->buff=ot->sys->malloc(ot->me->buffLen)))return("noMpgBf");
@@ -58,18 +55,16 @@ char* play(){
 	puts("vplay");
 	v.delay=1000000000/ot->dmx->f->fps;
 	v.next=sceKernelGetSystemTimeWide();
-//	printf("delay:%i %i\n",v.delay,v.next);
 	for(int s=0;(s<ot->dmx->f->VstszLen);s++){
 		Nal nal={ot->dmx->f->sps,ot->dmx->f->spsLen,ot->dmx->f->pps,ot->dmx->f->ppsLen,ot->dmx->f->nalPreLen,ot->dmx->getVSample(s),ot->dmx->f->Vstsz[s],s?0:3};
 		sceMpegGetAvcNalAu(&ot->me->mpeg,&nal,ot->me->mpegAu);
 		SceMpegAvcMode mode={-1,ot->lcd->type};
 		sceMpegAvcDecodeMode(&ot->me->mpeg,&mode);
-		if(sceMpegAvcDecode(&ot->me->mpeg,ot->me->mpegAu,ot->lcd->size,0,&ot->me->pics)<0)return("VdecErr");
+		if(sceMpegAvcDecode(&ot->me->mpeg,ot->me->mpegAu,ot->lcd->size,0,&ot->me->pics)<0)return NULL;//("VdecErr");
 		sceMpegAvcDecodeDetail2(&ot->me->mpeg,&ot->me->d);
-		for(int i=0;i<ot->me->pics;i++){
-			Mp4AvcCscStruct csc={(ot->me->d->info->height+15)>>4,(ot->me->d->info->width+15)>>4,0,0,ot->me->d->yuv->b0,ot->me->d->yuv->b1,ot->me->d->yuv->b2,ot->me->d->yuv->b3,ot->me->d->yuv->b4,ot->me->d->yuv->b5,ot->me->d->yuv->b6,ot->me->d->yuv->b7};
-			sceMpegBaseCscAvc(swapBuffer(),0,ot->lcd->size, &csc);//color space conversion
-		}
+		Mp4AvcCscStruct csc={(ot->me->d->info->height+15)>>4,(ot->me->d->info->width+15)>>4,0,0,ot->me->d->yuv->b0,ot->me->d->yuv->b1,ot->me->d->yuv->b2,ot->me->d->yuv->b3,ot->me->d->yuv->b4,ot->me->d->yuv->b5,ot->me->d->yuv->b6,ot->me->d->yuv->b7};
+		for(int i=0;i<ot->me->pics;i++)sceMpegBaseCscAvc(swapBuffer(),0,ot->lcd->size, &csc);//color space conversion (TODO:display each buffer)
+//		if(s>60)return NULL;
 	}
 	return NULL;
 }
@@ -91,8 +86,7 @@ char* stop(){
 	ot->dmx->Vseek=NULL;
 	ot->dmx->Vstop=NULL;
 	ot->sys->modstun(v.modmpg);
-	sceUtilityUnloadAvModule(0);
-	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x10000,0,0),0,NULL);//to be unable to return
+	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x1000,0,0),0,NULL);//to be unable to return
 	return NULL;
 }
 int module_start(int args,void*argp){

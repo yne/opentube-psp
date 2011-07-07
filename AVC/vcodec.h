@@ -1,7 +1,8 @@
 #ifndef VCODEC_H
 #define VCODEC_H
 typedef struct{
-	int delay,next;
+	int delay;
+	long long next;
 	u32 modmpg;
 }Vcodec;
 

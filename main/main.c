@@ -2,6 +2,7 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
+#include <psputility.h>
 #include "main.h"
 #define sw(n) (((n>>24)&0xff)|((n<<8)&0xff0000)|((n>>8)&0xff00)|((n<<24)&0xff000000))
 
@@ -99,20 +100,19 @@ char* Play(const char* file){
 	if(!(err=ot.sys->onLoad(file)))
 		err=ot.sys->onPlay();//blocking
 	ot.sys->onStop();
-	
 	return err;
 }
 int start(SceSize args,void*argp){
 	sceIoChdir(ot.sys->cwd);
 	if(!(ot.me->pool=memalign(0x400000,0x400000)))return -1;//first malloc
 	ot.me->bootNid=0x051C1601;
+	sceUtilityLoadAvModule(0);
 	//sudo(SUDO_STARTME,0x051C1601,5);
 	//sudo(SUDO_SETFREQ,0x9DB844C6,44100);
-	if((ot.sys->err=Play("test.mp4")))puts(ot.sys->err);
-	puts("--------------------------------");
-//------sceKernelDelayThread(1000*1000*5);
-	if((ot.sys->err=Play("test.mp4")))puts(ot.sys->err);
+	if((ot.sys->err=Play("360p.flv")))puts(ot.sys->err);
+//	if((ot.sys->err=Play("test.mp4")))puts(ot.sys->err);
 	puts("core unload");
+	sceUtilityUnloadAvModule(0);
 	__psp_free_heap();
 	if(ot.sys->cwd[0]=='m')sceKernelExitGame();//ms0
 	sceKernelSelfStopUnloadModule(1,0,NULL);//host0

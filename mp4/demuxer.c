@@ -2,6 +2,7 @@
 #include <pspdisplay.h>
 #include <stdio.h>
 #include <string.h>
+#include <psputility.h>
 #include "demuxer.h"
 #include "main.h"
 
@@ -31,11 +32,6 @@ u32 read32(){
 	sceIoRead(fd,&i,4);
 	return sw(i);
 }
-void head(){
-	size=read32()-8;
-	type=read32();
-//	if(size==-7)size=read(2);
-}
 int get(){
 	return (c=Realloc(c,size))?sceIoRead(fd,c,size):puts("Malloc error");
 }
@@ -44,7 +40,8 @@ void skip(){
 	sceIoLseek(fd,size,SEEK_CUR);
 }
 char* parse(){
-	head();
+	size=read32()-8;
+	type=read32();
 //	puts("parse...");
 	if((type>0x7FFFFFFF)||(type<0x60000000))return "badAtom";//bad atom
 	switch(type){//parent atom must be in cased (otherwith they are skipped)
@@ -62,6 +59,7 @@ char* parse(){
 					f.ch=c[15+18];
 					f.bps=c[15+20];
 					f.hz=((c[15+25]<<8)+(c[15+26]))&0xFFFF;
+					ot->dmx->Ahz=f.hz;
 				}else{
 					puts("unkAfmt");
 				}
@@ -265,12 +263,29 @@ char* onLoad(const char* file){
 	//printf("%08X\n",f.Vcodec);
 	return 0;
 }
+int Video_ok,Audio_ok;
+int Video(unsigned args,void*argp){
+	ot->dmx->Vplay();
+	Video_ok=1;
+	puts("v ok");
+	return sceKernelExitDeleteThread(0);
+}
+int Audio(unsigned args,void*argp){
+	ot->dmx->Aplay();
+	Audio_ok=1;
+	puts("a ok");
+	return sceKernelExitDeleteThread(0);
+}
 char* onPlay(){
 	puts("start playback");
-	char*err=NULL;
-	if((err=ot->dmx->Aplay()))return err;
-	if((err=ot->dmx->Vplay()))return err;
-	return err;
+	Video_ok=0;Audio_ok=0;
+	sceKernelStartThread(sceKernelCreateThread("video",Video,0x11,0x1000,0,0),0,NULL);
+	sceKernelStartThread(sceKernelCreateThread("audio",Audio,0x11,0x1000,0,0),0,NULL);
+	while((Video_ok!=1) || (Audio_ok!=1))
+		sceKernelDelayThread(1000*100);
+//	u32 vto=1000*1000*(ot->dmx->Vlen/ot->dmx->Vfps);
+//	u32 ato=1000*1000*((ot->dmx->Alen*1024)/ot->dmx->Ahz);
+	return ot->sys->err;
 }
 char* onSeek(int w,int o){
 	puts("seek...");
@@ -296,6 +311,7 @@ char* onStop(){
 	ot->sys->onPlay=NULL;
 	ot->sys->onSeek=NULL;
 	ot->sys->onStop=NULL;
+	ot->dmx=NULL;
 	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x10000,0,0),0,NULL);//to be unable to return
 	return NULL;
 }
