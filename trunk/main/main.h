@@ -89,14 +89,14 @@ typedef struct{
 	int width;
 	int mode0;
 	int mode1;
-	void* buffer0;
-	void* buffer1;
-	void* buffer2;
-	void* buffer3;
-	void* buffer4;
-	void* buffer5;
-	void* buffer6;
-	void* buffer7;
+	void* b0;
+	void* b1;
+	void* b2;
+	void* b3;
+	void* b4;
+	void* b5;
+	void* b6;
+	void* b7;
 } Mp4AvcCscStruct;
 typedef struct{
 	char*err;
