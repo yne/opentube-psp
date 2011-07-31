@@ -1,14 +1,14 @@
 TARGET = ../mp4a.6134706D
 OBJS = acodec.o
-# mp4.o play.o utils.o gui.o jsfunctions.o
-#OBJS+= lib/bridge.o lib/mpegbase.o lib/sceMpeg.o
 
 INCDIR = ../lib ../main ../mp4
 CFLAGS = -G0 -Wall -O3 -std=c99
-LDFLAGS =  -mno-crt0 -nostartfiles
-ASFLAGS = $(CFLAGS)
+LDFLAGS = -mno-crt0 -nostartfiles
 
 BUILD_PRX = 1
+
+PRX_EXPORTS = ../lib/export.exp
+
 
 USE_PSPSDK_LIBC = 1
 LIBS = -lpspaudio -lpspaudiocodec

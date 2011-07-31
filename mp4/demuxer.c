@@ -2,7 +2,7 @@
 #include <pspdisplay.h>
 #include <stdio.h>
 #include <string.h>
-#include <psputility.h>
+#include <pspctrl.h>
 #include "demuxer.h"
 #include "main.h"
 
@@ -28,16 +28,16 @@ MP4 f;
 Demuxer dmx={getASample,getVSample};
 u32 read32(){
 	u32 i;
-//	dlSync(fd,sceIoLseek(fd,0,SEEK_CUR)+4);
-	sceIoRead(fd,&i,4);
+//	dlSync(fd,Seek(fd,0,SEEK_CUR)+4);
+	Read(fd,&i,4);
 	return sw(i);
 }
 int get(){
-	return (c=Realloc(c,size))?sceIoRead(fd,c,size):puts("Malloc error");
+	return (c=Realloc(c,size))?Read(fd,c,size):puts("Malloc error");
 }
 void skip(){
-//	dlSync(fd,sceIoLseek(fd,0,SEEK_CUR)+size);
-	sceIoLseek(fd,size,SEEK_CUR);
+//	dlSync(fd,Seek(fd,0,SEEK_CUR)+size);
+	Seek(fd,size,SEEK_CUR);
 }
 char* parse(){
 	size=read32()-8;
@@ -216,8 +216,8 @@ void* getVSample(int s){
 	for(t=0;(t<f.VstcoLen)&&(f.VstscFst[t]<=s);t++);//seek to trunk+1
 	for(int i=f.VstscFst[t-1];i<s;i++)pos+=f.Vstsz[i];//seek to sample in trunk
 	video=Realloc(video,f.Vstsz[s]);
-	sceIoLseek(f.Vfd,f.Vstco[t-1]+pos,SEEK_SET);
-	sceIoRead(f.Vfd,video,f.Vstsz[s]);
+	Seek(f.Vfd,f.Vstco[t-1]+pos,SEEK_SET);
+	Read(f.Vfd,video,f.Vstsz[s]);
 //	printf("%p = %08X %i\n",video,offset[s],f.Vstsz[s]);
 	return video;
 }
@@ -227,35 +227,35 @@ void* getASample(int s){
 	for(t=0;(t<f.AstcoLen)&&(f.AstscFst[t]<=s);t++);//seek to trunk+1
 	for(int i=f.AstscFst[t-1];i<s;i++)pos+=f.Astsz[i];//seek to sample in trunk
 	audio=Realloc(audio,f.Astsz[s]);
-	sceIoLseek(f.Afd,f.Astco[t-1]+pos,SEEK_SET);
-	sceIoRead(f.Afd,audio,f.Astsz[s]);
+	Seek(f.Afd,f.Astco[t-1]+pos,SEEK_SET);
+	Read(f.Afd,audio,f.Astsz[s]);
 	return audio;
 }
 char* onLoad(const char* file){
 	puts("opening");
-	if((fd=sceIoOpen(file,PSP_O_RDONLY,0777))<0)return "fileErr";
+	if((fd=Open(file,PSP_O_RDONLY,0777))<0)return "fileErr";
 	char*err=parse();
-	sceIoClose(fd);
+	Close(fd);
 	if(err){puts(err);return err;}
 
 	if((err=ot->sys->findCodec(NULL,f.Acodec)))return err;
 	if(!(ot->dmx->Aload&&ot->dmx->Aplay&&ot->dmx->Aseek&&ot->dmx->Astop))return "badAApi";
-	if((f.Afd=sceIoOpen(file,PSP_O_RDONLY,0777))<0)return "fileErr";
+	if((f.Afd=Open(file,PSP_O_RDONLY,0777))<0)return "fileErr";
 	rebuildASpsc();
 	//rebuild(f.AstszLen,f.Astsz,f.AstcoLen,f.AstscSpc,f.AstscFst);
 	if((err=ot->dmx->Aload()))return err;
 	
 	if((err=ot->sys->findCodec(NULL,f.Vcodec)))return err;
 	if(!(ot->dmx->Vload&&ot->dmx->Vplay&&ot->dmx->Vseek&&ot->dmx->Vstop))return "badVApi";
-	if((f.Vfd=sceIoOpen(file,PSP_O_RDONLY,0777))<0)return "fileErr";
+	if((f.Vfd=Open(file,PSP_O_RDONLY,0777))<0)return "fileErr";
 	rebuildVSpsc();
 	//rebuild(f.VstszLen,f.Vstsz,f.VstcoLen,f.VstscSpc,f.VstscFst);
 	if((err=ot->dmx->Vload()))return err;
 
-	int tmp=sceIoOpen("audio",PSP_O_CREAT|PSP_O_WRONLY,0777);
-	for(int i=0;i<f.AstcoLen;i++)
-		sceIoWrite(tmp,getASample(i),f.Astsz[i]);
-	sceIoClose(tmp);
+	//int tmp=Open("audio",PSP_O_CREAT|PSP_O_WRONLY,0777);
+	//for(int i=0;i<f.AstcoLen;i++)
+	//	sceIoWrite(tmp,getASample(i),f.Astsz[i]);
+	//Close(tmp);
 	
 	//int dummy;sceDisplayGetMode(&ot->lcd->type,dummy,dummy);
 	ot->lcd->type=PSP_DISPLAY_PIXEL_FORMAT_8888;
@@ -263,28 +263,32 @@ char* onLoad(const char* file){
 	//printf("%08X\n",f.Vcodec);
 	return 0;
 }
-int Video_ok,Audio_ok;
 int Video(unsigned args,void*argp){
 	ot->dmx->Vplay();
-	Video_ok=1;
+	((int*)argp)[0]=0;
 	puts("v ok");
 	return sceKernelExitDeleteThread(0);
 }
 int Audio(unsigned args,void*argp){
 	ot->dmx->Aplay();
-	Audio_ok=1;
+	((int*)argp)[0]=0;
 	puts("a ok");
 	return sceKernelExitDeleteThread(0);
 }
+int ctrlOk(){
+	if(ot->sys->pad!=ot->sys->_pad)if(ot->sys->pad&PSP_CTRL_CIRCLE)return 0;
+	return 1;
+}
 char* onPlay(){
 	puts("start playback");
-	Video_ok=0;Audio_ok=0;
-	sceKernelStartThread(sceKernelCreateThread("video",Video,0x11,0x1000,0,0),0,NULL);
-	sceKernelStartThread(sceKernelCreateThread("audio",Audio,0x11,0x1000,0,0),0,NULL);
-	while((Video_ok!=1) || (Audio_ok!=1))
-		sceKernelDelayThread(1000*100);
-//	u32 vto=1000*1000*(ot->dmx->Vlen/ot->dmx->Vfps);
-//	u32 ato=1000*1000*((ot->dmx->Alen*1024)/ot->dmx->Ahz);
+	int vTh=sceKernelCreateThread("video",Video,0x11,0x10000,0,0);
+	int aTh=sceKernelCreateThread("audio",Audio,0x11,0x10000,0,0);
+	sceKernelStartThread(vTh,4,&vTh);
+	sceKernelStartThread(aTh,4,&aTh);
+	while(ctrlOk()&&(vTh&&aTh))sceDisplayWaitVblankStart();
+	if(vTh)sceKernelTerminateDeleteThread(vTh);
+	if(aTh)sceKernelTerminateDeleteThread(aTh);
+	puts("end");
 	return ot->sys->err;
 }
 char* onSeek(int w,int o){
@@ -300,19 +304,24 @@ int unload(SceSize args,void*argp){
 }
 char* onStop(){
 	puts("unloading demuxer");
-	if(audio)Free(audio);
-	if(video)Free(video);
+	Realloc(video,0);Realloc(audio,0);
 //free atom list
+	Free(f.sps);Free(f.pps);
+	Free(f.VstscFst);Free(f.AstscFst);
+	Free(f.VstscSpc);Free(f.AstscSpc);
+	Free(f.VstscSid);Free(f.AstscSid);
+	Free(f.Vstsz);   Free(f.Astsz);
+	Free(f.Vstco);   Free(f.Astco);
 	ot->dmx->Astop();
 	ot->dmx->Vstop();
-	if(f.Afd>0)sceIoClose(f.Afd);
-	if(f.Vfd>0)sceIoClose(f.Vfd);
+	if(f.Afd>0)Close(f.Afd);
+	if(f.Vfd>0)Close(f.Vfd);
 	ot->sys->onLoad=NULL;
 	ot->sys->onPlay=NULL;
 	ot->sys->onSeek=NULL;
 	ot->sys->onStop=NULL;
 	ot->dmx=NULL;
-	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x10000,0,0),0,NULL);//to be unable to return
+	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x1000,0,0),0,NULL);//to be able to return
 	return NULL;
 }
 int module_start(int args,void*argp){

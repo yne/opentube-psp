@@ -11,6 +11,7 @@ OpenTube*ot;
 Acodec a;
 
 char*load(){
+	puts("aload");
 	a.au.freq=ot->dmx->Ahz;
 	a.chan=sceAudioChReserve(PSP_AUDIO_NEXT_CHANNEL,PSP_AUDIO_SAMPLE_ALIGN(1024),PSP_AUDIO_FORMAT_STEREO);
 	if(sceAudiocodecCheckNeedMem(&a.au, PSP_CODEC_AAC)<0)return "chekmem";
@@ -20,6 +21,7 @@ char*load(){
 }
 unsigned out[2][1024*2] __attribute__((aligned(64)));
 char*play(){
+	puts("aplay");
 	for(int s=0;s<ot->dmx->f->AstszLen;s++){
 		a.au.src=ot->dmx->getASample(s);
 		a.au.srcLen=ot->dmx->f->Astsz[s];
@@ -50,7 +52,9 @@ char*stop(){
 	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x1000,0,0),0,NULL);//to be unable to return
 	return NULL;
 }
-
+int module_stop(int args,void*argp){
+	return 0;
+}
 int module_start(int args,void*argp){
 	puts("AAC codec loaded");
 	if(args!=4)return 0;//return if no context
