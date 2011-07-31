@@ -1,7 +1,7 @@
-TARGET = ../avc1.31637661
-OBJS = vcodec.o
-OBJS+= ../lib/mpegbase.o ../lib/sceMpeg.o
-INCDIR = ../lib ../main ../mp4
+TARGET = ../io
+OBJS = io.o
+
+INCDIR = ../lib ../main
 CFLAGS = -G0 -Wall -O3 -std=c99
 LDFLAGS = -mno-crt0 -nostartfiles
 
@@ -11,7 +11,7 @@ PRX_EXPORTS = ../lib/export.exp
 
 
 USE_PSPSDK_LIBC = 1
-
+LIBS = -lpsphttp -lpspssl -lpspgu
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak
 
