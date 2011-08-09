@@ -15,7 +15,7 @@
 #include <pspnet_resolver.h>
 #include <psphttp.h>
 #include <pspssl.h>
-#define FD2TPL(fd) (  fd&0x0000FF)>>0 )|0x00000000)
+#define FD2TPL(fd) (((fd&0x0000FF)>>0 )|0x00000000)
 #define FD2CNX(fd) (((fd&0x00FF00)>>8 )|0x01000000)
 #define FD2REQ(fd) (((fd&0xFF0000)>>16)|0x02000000)
 //0x00RRCCTT

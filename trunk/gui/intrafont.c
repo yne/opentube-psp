@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "intraFont.h"
+#include "intrafont.h"
 #include "main.h"
 
 
