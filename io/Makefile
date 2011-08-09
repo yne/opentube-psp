@@ -1,8 +1,8 @@
 TARGET = ../io
 OBJS = io.o
 
-INCDIR = ../lib ../main
-CFLAGS = -G0 -Wall -O3 -std=c99
+INCDIR = ../lib ../core
+CFLAGS = -G0 -Wall -Os -std=c99
 LDFLAGS = -mno-crt0 -nostartfiles
 
 BUILD_PRX = 1

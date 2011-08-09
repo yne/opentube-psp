@@ -13,9 +13,18 @@ PSP_HEAP_SIZE_KB(9*1024);
 
 OpenTube*ot;//OpenTube core context
 extern void __psp_free_heap();
-int modload(const char* path){
+int modload(char* path){
+//	if(((u32*)path)[0]==0x70747468 && (((u32*)path)[1]&0xFFFFFF)==0x632F2F3A)
+	int is_local=strncmp("http://",path,7);
+	if(!is_local){
+		if((is_local=Open(path,HTTP_SAVE_FILE,0777)))return is_local;
+		char*fname=path;
+		for(int i=0;path[i];i++)if(path[i]=='/')fname=path+i+1;
+		path=fname;
+	}
 	int ret,modid=sceKernelLoadModule(path, 0,0);
 	if(modid>=0)sceKernelStartModule(modid, sizeof(ot), &ot, &ret, NULL);
+	if(!is_local)sceIoRemove(path);//removed once unloaded ?!
 	return modid;
 }
 char* sudo(int mode,u32 nid,int param){
@@ -56,22 +65,21 @@ char* id2str(u32 id){
 }
 char* findCodec(const char* name,unsigned id){//load a codec from name or id
 	int fd,uid=0;
-	if((fd=sceIoDopen("/"))<0)return "bad codec dir";
-	SceIoDirent ent;
+	if((fd=sceIoDopen(CWD))<0)return "bad codec dir";
+	SceIoDirent ent;char abs_ent[256]="";
 	const char*mime=name?name:id2str(id);
 	printf("searching codec for ");puts(mime);
 	while(uid<=0 && sceIoDread(fd,&ent)>0)
 		if(strstr(ent.d_name,mime))
-			uid=modload(ent.d_name);
+			uid=modload(strcat(strcat(abs_ent,CWD),ent.d_name));
 	return uid>0?NULL:"no codec found";
 }
 char* play(const char* file){
 	char*err=NULL;int mime;
 	int fd=sceIoOpen(file,PSP_O_RDONLY,0777);
 	sceIoRead(fd,&mime,4);
-	findCodec(NULL,mime);
+	if((err=findCodec(NULL,mime)))return(err);
 	sceIoClose(fd);
-//	if((err=findDemux(file,NULL)))return err;
 	if(!(ot->sys->onPlay&&ot->sys->onLoad&&ot->sys->onSeek&&ot->sys->onStop))return "missing function";
 	puts("ready !");
 	if(!(err=ot->sys->onLoad(file)))
@@ -79,7 +87,7 @@ char* play(const char* file){
 	ot->sys->onStop();
 	return err;
 }
-int modIo,modGui,padTh;
+int padTh;
 int pad(SceSize args,void*argp){
 	SceCtrlData pad,_pad;
 	sceCtrlSetSamplingCycle(0);
@@ -90,20 +98,25 @@ int pad(SceSize args,void*argp){
 		ot->sys->pad=pad.Buttons;
 		ot->sys->_pad=_pad.Buttons;
 		_pad.Buttons=pad.Buttons;
+		if(pad.Buttons&PSP_CTRL_START
+		&& pad.Buttons&PSP_CTRL_SELECT
+		&& pad.Buttons&PSP_CTRL_LTRIGGER
+		&& pad.Buttons&PSP_CTRL_RTRIGGER)Exit();
 	}
 	return 0;
 }
 int module_stop(SceSize args, char *argp){
-	if(ot->sys->onStop)ot->sys->onStop();//stop current playing
-	modstun(modGui);
-	modstun(modIo);
-	sceKernelTerminateDeleteThread(padTh);
-	sceUtilityUnloadAvModule(0);
 	__psp_free_heap();
 	puts("core unload");
 	return 0;
 }
 int stop(){
+	if(ot->sys->onStop)ot->sys->onStop();//stop current playing
+	if(!ot->io)puts("no IO");
+	//	if(modGui>0)modstun(modGui);
+	if(ot->io&&ot->io->unload)ot->io->unload();else puts("no OI unload CB");
+	sceKernelTerminateDeleteThread(padTh);
+	sceUtilityUnloadAvModule(0);
 	module_stop(0,NULL);
 	if(CWD[0]=='m')sceKernelExitGame();//ms0
 	sceKernelSelfStopUnloadModule(1,0,NULL);//host0
@@ -115,13 +128,17 @@ int start(SceSize args,void*argp){
 	sceIoChdir(CWD);
 	sceUtilityLoadAvModule(0);
 	sceKernelStartThread((padTh=sceKernelCreateThread("OpenTube.ctrl",pad,0x11,0x10000,0,0)),0,NULL);
-	modIo=modload("io.prx");
-	modGui=modload("gui.prx");
+	modload("io.prx");
+	char*result=NULL;
+	Open("http://gdata.youtube.com/feeds/api/videos?q=Djmax%20BGA&start-index=1&max-results=20&v=1",HTTP_SAVE_RAM,(int)&result);
+
+//	modload("gui.prx");
+//	modload("http://opentube-psp.googlecode.com/files/test.prx");
 	sceKernelExitDeleteThread(0);
 	return 0;
 }
 MeCtx me;
-CoreSys sys={NULL,"ms0:/",0,stop,modstun,modload,alert,my_free,my_realloc,my_malloc,sudo,findCodec,play};
+CoreSys sys={NULL,"",0,stop,modstun,modload,alert,my_free,my_realloc,my_malloc,sudo,findCodec,play};
 Display lcd={1,0x44000000,0x44000000,512,3,0};//PSP_DISPLAY_PIXEL_FORMAT_8888
 OpenTube Ot={&sys,&lcd,NULL,NULL,NULL,&me};//OpenTube core context
 int module_start(SceSize args,char*argp){

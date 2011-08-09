@@ -1,18 +1,21 @@
 #include <pspkernel.h>
+#include <pspumd.h>
+#include <string.h>
 #include "jpg.h"
 #include "graphic.h"
 #include "main.h"
-#include "font.h"
-
+#include "intrafont.h"
+#define ISDIR(stat) (stat.d_stat.st_mode==11C0)
 PSP_MODULE_INFO("OpenTube.gui",0,0,0);
 
 static unsigned int  __attribute__((aligned(16))) list[0x40000];int n=0;
-int panelVisible=0,panelPos=0,topBarVisible=1,topBarPos=0,scrollBarVisible=1,scrollBarPos=0;
+Wall bg;Panel pan;TopBar top;ScrollBar bar;List lst;Cursor cur;
 
 void queueSprite(short sx,short sy,short sw,short sh,short tx,short ty,short tw,short th,Vertex*v){
-	if(!wallTex){sx=sy=0;sw=sh=32;}
+	if(bg.tbw!=512){sx=sy=0;sw=sh=bg.tbw;}
 	v[n].u=sx;v[n+1].u=v[n].u+sw;
 	v[n].v=sy;v[n+1].v=v[n].v+sh;
+	v[n].c=   v[n+1].c=0xFFFF;
 	v[n].x=tx;v[n+1].x=v[n].x+tw;
 	v[n].y=ty;v[n+1].y=v[n].y+th;
 	n+=2;
@@ -20,15 +23,11 @@ void queueSprite(short sx,short sy,short sw,short sh,short tx,short ty,short tw,
 void*getVramDrawBuffer(){
 	return (void*)(dispBufferNumber?0x44088000:0x44000000);
 }
-void blitWall(void*p){
-//	void* vram;int fmt,tbw;
-//	sceDisplayGetFrameBuf(&vram,&tbw,&fmt,1);
-	//sceKernelDcacheWritebackInvalidateAll();
-	//sceGuStart(GU_DIRECT,list);
-	if(wallTex)sceGuCopyImage(GU_PSM_8888,32,0,480,272,512,p,0,0,512,getVramDrawBuffer());
-	else sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
-	//sceGuFinish();
-	//sceGuSync(0,0);
+void blitWall(){
+	sceGuTexImage(0,bg.tbw,bg.h,bg.tbw,bg.p);
+	if(bg.tbw!=512)return sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
+	sceGuCopyImage(GU_PSM_8888,32,0,480,272,512,bg.p,0,0,512,getVramDrawBuffer());
+	return sceGuTexSync();
 }
 void drawVideoShadow(Vertex*v,int w,int h){
 	int x=(480-w)/2-8,y=(272-h)/2-8;
@@ -54,14 +53,12 @@ void drawVideoShadow(Vertex*v,int w,int h){
 	v[16].x=x+8+w;v[17].x=x+8+w+8;v[16].y=y+8+h;v[17].y=y+8+h+8;	
 }
 void fallBackTex(){
-	wallTex_=Malloc(32*32*4);
+	Wall tmp={32,32,Malloc(32*32*4)};bg=tmp;
 	for(int y=0;y<32;y++)
 		for(int x=0;x<32;x++)
-			((int*)wallTex_)[x+32*y]=(x==0||x==31||y==0||y==31||x==y||x==31-y)?0xFF0000FF:0x0;
+			((int*)bg.p)[x+32*y]=(x==0||x==31||y==0||y==31||x==y||x==31-y)?0xFF0000FF:0x0;
 }
-char*demo="no licence on this lib ?!";
-int fw=0,fh=0,ft=1;
-void*fontTest;
+intraFont*ltn;
 char*init(){
 	sceGuInit();
 	dispBufferNumber=0;
@@ -79,92 +76,188 @@ char*init(){
 	sceGuShadeModel(GU_SMOOTH);
 	sceGuEnable(GU_CLIP_PLANES);
 	sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);sceGuEnable(GU_BLEND);
-	sceGuTexFunc(GU_TFX_REPLACE, GU_TCC_RGBA);
-	int bw=0,bh=0;
-	wallTex=jpgOpen("res/wall.jpg","res/wall_.jpg",&bw,&bh);
-	if(!wallTex)fallBackTex();
 	sceGuTexMode(GU_PSM_8888,0,0,0);
-	if(fontInit()<0)puts("fonterr");
 	sceGuEnable(GU_TEXTURE_2D);
 	sceGuClearColor(0xff37352D);
 	sceGuClearDepth(0);
-	sceGuTexFunc(GU_TFX_REPLACE,GU_TCC_RGBA); // NOTE: this enables reads of the alpha-component from the texture, otherwise blend/test won't work
-	sceGuTexFilter(GU_NEAREST,wallTex?GU_LINEAR:GU_NEAREST);
 	sceGuTexWrap(GU_CLAMP,GU_CLAMP);
 	sceGuFinish();
 	sceGuSync(0,0);
-	
-	getStrRes(demo,&fw,&fh,&ft);
-	fontTest=Malloc(ft*fh*4);
-	fontPrint(demo,fontTest,&ft,&fh);
 	sceDisplayWaitVblankStart();
 	sceGuDisplay(GU_TRUE);
+	if(!(bg.p=jpgOpen("res/wall.jpg","res/wall_.jpg",&bg.tbw,&bg.h)))fallBackTex();
+	intraFontInit();
+	ltn=intraFontLoad("flash0:/font/ltn8.pgf",INTRAFONT_CACHE_ASCII);
+	lst.color=0xFFFFFF;
+	lst.shadow=0x000000;
 	ready=1;
 	return 0;
 }
 void clean(){
-	panelVisible<<=1;
-	topBarVisible<<=1;
-	scrollBarVisible<<=1;
+	cur.visible<<=1;
+	lst.visible<<=1;
+	pan.visible<<=1;
+	top.visible<<=1;
+	bar.visible<<=1;
 }
 void restor(){
-	panelVisible>>=1;
-	topBarVisible>>=1;
-	scrollBarVisible>>=1;
+	cur.visible>>=1;
+	lst.visible>>=1;
+	pan.visible>>=1;
+	top.visible>>=1;
+	bar.visible>>=1;
+}
+void setList(){
+	if(lst.visible==1){
+		if((lst.color >>24)<0xF0)lst.color +=0x10000000;//(lst.color+0x10000000)&(lst.color&0xFFFFFF);
+		if((lst.shadow>>24)<0xF0)lst.shadow+=0x10000000;//(lst.shadow+0x10000000)&(lst.shadow&0xFFFFFF);
+	}else{
+		if((lst.color >>24)>0x10)lst.color -=0x10000000;//(lst.color+0x10000000)&(lst.color&0xFFFFFF);
+		if((lst.shadow>>24)>0x10)lst.shadow-=0x10000000;//(lst.shadow+0x10000000)&(lst.shadow&0xFFFFFF);
+	}
+}
+void setCur(){
+	if(pan.visible==1){
+		cur.x=470-pan.pos;
+		cur.y=108+12*pan.curr;
+	}else{
+		cur.x=bar.pos-16;
+		cur.y=(lst.curr*12)+22;
+	}
+	if(cur._x<cur.x)cur._x+=((cur.x-cur._x)+3)/4;
+	if(cur._x>cur.x)cur._x+=((cur.x-cur._x)-3)/4;
+	if(cur._y<cur.y)cur._y+=((cur.y-cur._y)+3)/4;
+	if(cur._y>cur.y)cur._y+=((cur.y-cur._y)-3)/4;
+//	printf("%i <%i %i> <%i %i>\n",lst.curr,cur.x,cur.y,cur._x,cur._y);
 }
 void setPanel(){
-	if(panelVisible==1){
-		if(panelPos<160)panelPos+=(160-panelPos)/4;
-		if(panelPos>160)panelPos=160;
+	if(pan.visible==1){
+		if(pan.pos<160)pan.pos+=(160-pan.pos)/4;
+		if(pan.pos>160)pan.pos=160;
 	}else{
-		if(panelPos>0)panelPos-=1+(panelPos)/2;
-		if(panelPos<0)panelPos=0;
+		if(pan.pos>0)pan.pos-=1+(pan.pos)/2;
+		if(pan.pos<0)pan.pos=0;
 	}
 }
 void setTopBar(){
-	if(topBarVisible==1){
-		if(topBarPos<22)topBarPos++;
-		if(topBarPos>22)topBarPos=22;
+	if(top.visible==1){
+		if(top.pos<22)top.pos++;
+		if(top.pos>22)top.pos=22;
 	}else{
-		if(topBarPos>0)topBarPos--;
-		if(topBarPos<0)topBarPos=0;
+		if(top.pos>0)top.pos--;
+		if(top.pos<0)top.pos=0;
 	}
 }
 void setScrollBar(){
-	if(scrollBarVisible==1){
-		if(scrollBarPos<16)scrollBarPos++;
-		if(scrollBarPos>16)scrollBarPos=16;
+	if(bar.visible==1){
+		if(bar.pos<16)bar.pos++;
+		if(bar.pos>16)bar.pos=16;
 	}else{
-		if(scrollBarPos>0)scrollBarPos--;
-		if(scrollBarPos<0)scrollBarPos=0;
+		if(bar.pos>0)bar.pos--;
+		if(bar.pos<0)bar.pos=0;
 	}
+}
+char dir[256];//current browser dir
+void strnccpy(char*src,char*dst,char c,int n){//cp src to dst while src!=c (at max n time)
+	for(int i=0;i<n;i++)
+		if(src[i]==c){dst[i]=0;break;}
+		else dst[i]=src[i];
+}
+char*drives[]={"ms0:/","host0:/","disc0:/","flash0:/","ef0:/"};
+char*badcd[]={"../"};
+void cd(char* dir){
+	if(!memcmp("disc0:/",dir,6)){
+		puts("activating umd");
+		if(!sceUmdCheckMedium())return (void)(dir[0]=0);
+		sceUmdActivate(1,"disc0:");
+		sceUmdWaitDriveStat(PSP_UMD_READY);
+	}
+	sceIoChdir(dir);
+}
+void ls(char* dir){
+	while(lst.len)Free(lst.p[lst.len--]);
+//	if(!dir[0]){printf("DIR\n");lst.p=drives;lst.len=sizeof(drives)/sizeof(char*);return;}//drives listing
+	int fd=sceIoDopen(dir);
+	for(SceIoDirent ent;fd>0&&sceIoDread(fd,&ent)>0;){
+		if(ent.d_name[0]=='.'&&ent.d_name[1]==0)continue;//skip "."
+		if(ent.d_stat.st_mode&0x1000)strcat(ent.d_name,"/");//suffix '/' if dir
+		lst.p=Realloc(lst.p,(++lst.len)*sizeof(char*));//resize the list
+		int size=strlen(ent.d_name)+1;
+		memcpy((lst.p[lst.len-1]=Malloc(size)),ent.d_name,size);//copy name to malloc'd entry
+	}
+	sceIoDclose(fd);
+	if(!lst.len){lst.p=badcd;lst.len=1;}
+}
+void updir(char*dir){
+	int i=strlen(dir)-2;
+//	if(dir[i]==':')return (void)(dir[0]=0);//no dir=device listing
+	for(;i;i--)if(dir[i]=='/')return (void)(dir[i+1]=0);
+}
+void select(){
+	if(pan.visible)return;
+	if(lst.visible){//file browser mode
+		if(lst.p[lst.curr][strlen(lst.p[lst.curr])-1]=='/'){//item is dir
+//			printf("cd %s ",lst.p[lst.curr]);
+			if(((int*)lst.p[lst.curr])[0]==0x002F2E2E)updir(dir);// "../"
+			else strcat(dir,lst.p[lst.curr]);
+//			printf("(%s)\n",dir);
+			cd(dir);
+			ls(dir);
+			lst.curr=0;
+		}else{//file selected
+			char*err=Play(lst.p[lst.curr]);
+			puts(err?err:"fine");
+		}
+	}
+}
+int  up(){
+	if(pan.visible)return pan.curr-=2;
+	if(lst.visible){
+		if(lst.curr)lst.curr--;
+		else lst.curr=lst.len-1;}
+	return 0;
+}
+int  down(){
+	if(pan.visible)return pan.curr+=2;
+	if(lst.visible){if(lst.curr<lst.len-1)lst.curr++;else lst.curr=0;}
+	return 0;
+}
+void left(){
+	printf("lt\n");
+}
+void right(){
+	printf("rg\n");
 }
 char*draw(int mode){//1:draw,2:sync,3:both
 	if(!ready)init();
 	if(mode&1){
+		setCur();
+		setList();
 		setPanel();
 		setTopBar();
 		setScrollBar();
-		
 		sceGuStart(GU_DIRECT, list);
-		if(wallTex)sceGuTexImage(0,512,272,512,wallTex);else sceGuTexImage(0,32,32,32,wallTex_);
-		blitWall(wallTex);
-		//sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
-		Vertex*v = sceGuGetMemory(6 * 2 * sizeof(Vertex));n=0;
-		queueSprite( 0, 0,24,22, 0,0,480,topBarPos,v);//topBar
-		queueSprite( 0,56,32, 8, 480-panelPos,22,160,250,v);
-		queueSprite( 0,64,16,16, scrollBarPos-16,22,16,16,v);
-		queueSprite( 0,80,16,16, scrollBarPos-16,128,16,16,v);
-		queueSprite(16,64,16,16, scrollBarPos-16,256,16,16,v);
-		sceGuDrawArray(GU_SPRITES,GU_TEXTURE_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_2D,n,0,v);
-		sceGuFinish();
-		sceGuSync(0,0);
-
-		sceGuStart(GU_DIRECT, list);
-		sceGuTexImage(0,fw,fh,ft,fontTest);
-		Vertex*t = sceGuGetMemory(1 * 2 * sizeof(Vertex));n=0;
-		queueSprite( 0,0,16,16, 240,136,16,16,t);
-		sceGuDrawArray(GU_SPRITES,GU_TEXTURE_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_2D,n,0,t);
+		blitWall();
+		for(int i=0,y=35;(i<lst.len)&&(y<480);i++,y+=12)
+			intraFontPrint(ltn, 16,y,lst.p[i]);//result/file list
+		sceGuTexMode(GU_PSM_8888,0,0,0);
+//		sceGuFinish();
+//		sceGuSync(0,0);
+//		sceGuStart(GU_DIRECT, list);
+//		sceGuTexFilter(GU_LINEAR,bg.tbw==512?GU_LINEAR:GU_NEAREST);
+		sceGuTexImage(0,bg.tbw,bg.h,bg.tbw,bg.p);
+		Vertex*v=sceGuGetMemory(3*2*sizeof(Vertex));n=0;
+		queueSprite( 0, 0,24,22, 0,0,480,top.pos,v);
+		printf("%i\n\n",top.pos);
+		queueSprite( 0,57,32, 6, 480-pan.pos,22,160,250,v);
+		queueSprite( 0,80,16,16, cur._x,cur._y,16,16,v);
+		sceGuDrawArray(GU_SPRITES,GU_TEXTURE_16BIT|GU_COLOR_4444|GU_VERTEX_16BIT|GU_TRANSFORM_2D,n,0,v);
+		sceGuTexFilter(GU_NEAREST,GU_NEAREST);
+		intraFontSetStyle(ltn,1.0f,0xFFFFFFFF,0xFF000000,0);
+		intraFontPrint(ltn, 15, top.pos-7, dir);//title
+		intraFontSetStyle(ltn,1.0f,lst.color,lst.shadow,0);
+		if(pan.visible)
+			intraFontPrint(ltn, 485-pan.pos, 121,"View\n\nSave\n\nInfo");//menu
 		sceGuFinish();
 		sceGuSync(0,0);
 	}
@@ -176,7 +269,13 @@ char*draw(int mode){//1:draw,2:sync,3:both
 	return 0;
 }
 int loop(SceSize args,void*argp){//thread
-	sceIoChdir(CWD);
+	cd(CWD);
+	ls(CWD);
+	cur.visible=1;
+	top.visible=1;
+	bar.visible=1;
+	lst.visible=1;
+	strncpy(dir,CWD,256);
 	while(1){
 		if(Mode!=1){//no draw while playback
 			sceDisplayWaitVblankStart();
@@ -184,18 +283,18 @@ int loop(SceSize args,void*argp){//thread
 		}
 		if(ot->sys->pad!=ot->sys->_pad){
 			if(ot->sys->pad&PSP_CTRL_START)break;
-			if(ot->sys->pad&PSP_CTRL_CROSS)Play("360p.mp4");
-			if(ot->sys->pad&PSP_CTRL_TRIANGLE)panelVisible=!panelVisible;
-			if(ot->sys->pad&PSP_CTRL_CIRCLE)Play("cache.mp4");
+			if(ot->sys->pad&PSP_CTRL_CROSS)select();//Play("res/360p.mp4");
+			if(ot->sys->pad&PSP_CTRL_TRIANGLE)pan.visible=!pan.visible;
+			if(ot->sys->pad&PSP_CTRL_CIRCLE)Play("res/cache.mp4");
 			if(ot->sys->pad&PSP_CTRL_SQUARE){
 				clean();
 				Open("http://google.com",0,0777);
 				restor();
 			}
-			if(ot->sys->pad&PSP_CTRL_UP);
-			if(ot->sys->pad&PSP_CTRL_DOWN);
-			if(ot->sys->pad&PSP_CTRL_LEFT);
-			if(ot->sys->pad&PSP_CTRL_RIGHT);
+			if(ot->sys->pad&PSP_CTRL_UP)up();
+			if(ot->sys->pad&PSP_CTRL_DOWN)down();
+			if(ot->sys->pad&PSP_CTRL_LEFT)left();
+			if(ot->sys->pad&PSP_CTRL_RIGHT)right();
 			if(ot->sys->pad&PSP_CTRL_LTRIGGER)clean();
 			if(ot->sys->pad&PSP_CTRL_RTRIGGER)restor();
 		}
@@ -212,9 +311,8 @@ char*stop(){
 	sceGuSync(0,0);
 	sceDisplayWaitVblankStart();
 	sceGuSwapBuffers();
-	Free(wallTex);
-//	if(<0)puts("fonterr");
-	fontStop();
+	Free(bg.p);
+//	fontStop();
 	sceGuTerm();	
 	return NULL;
 }

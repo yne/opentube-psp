@@ -1,7 +1,7 @@
 TARGET = ../kernel
 OBJS = kernel.o
 
-INCDIR = ../lib ../main
+INCDIR = ../lib ../core
 CFLAGS = -G0 -Wall -O3 -std=c99
 LDFLAGS = -mno-crt0 -nostartfiles
 
