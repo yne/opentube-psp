@@ -4,6 +4,9 @@
 #include <audiocodec.h>
 #include <mpegbase.h>
 
+#define HTTP_SAVE_RAM 0x1//return pointer to the whole file content
+#define HTTP_SAVE_FILE 0x2//return saved file path
+
 #define Realloc ot->sys->realloc
 #define Malloc ot->sys->malloc
 #define Free ot->sys->free
@@ -19,6 +22,7 @@
 #define Alert ot->sys->print
 #define Exit ot->sys->stop
 #define Mode ot->sys->mode
+#define Print(A) sceIoWrite(2,A,sizeof(A))
 
 #define Open ot->io->open
 #define Read ot->io->read
@@ -40,6 +44,7 @@ typedef struct{
 	int(*read)(int fd,void*p,int len);
 	int(*seek)(int fd,int type,int len);
 	int(*close)(int fd);
+	int(*unload)();
 }FileSys;
 typedef struct{
 	int mode;
@@ -128,7 +133,7 @@ typedef struct{
 	int mode;//1:menu,2:playback
 	int  (*stop)();//stop playback,unload core+dependency
 	int  (*modstun)(u32 modid);
-	int  (*modload)(const char* path);
+	int  (*modload)(char* path);
 	int  (*print)(char*str);
 	void (*free)(void*p);
 	void*(*realloc)(void*p,unsigned s);

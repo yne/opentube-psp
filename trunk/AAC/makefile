@@ -1,7 +1,7 @@
 TARGET = ../mp4a.6134706D
 OBJS = acodec.o
 
-INCDIR = ../lib ../main ../mp4
+INCDIR = ../lib ../core ../mp4
 CFLAGS = -G0 -Wall -O3 -std=c99
 LDFLAGS = -mno-crt0 -nostartfiles
 
