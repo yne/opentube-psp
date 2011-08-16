@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "jpg.h"
-#include "main.h"
+#include "core.h"
 #define MIN(A,B) (A<B?A:B)
 
 void*jpg2buf(char*path,int*w,int*h){
@@ -32,7 +32,7 @@ void*jpg2buf(char*path,int*w,int*h){
 	}
 	while((_w<<=1)<*w);
 	sceJpegCreateMJpeg(*w,*h);
-	void*raw=Malloc((_w)*(*h)*4);
+	void*raw=Memalign(64,(_w)*(*h)*4);
 	sceJpegDecodeMJpeg(data,size,raw,0);
 	Free(data);
 	sceJpegDeleteMJpeg();
@@ -54,11 +54,12 @@ void*addAlpha(void*buf,int bw,int bh,void*alpha,int aw,int ah){
 	return buf;
 }
 void*jpgOpen(char*path,char*apath,int*bw,int*bh){
+	sceUtilityLoadAvModule(0);//implying sceMeBootStart(2)
 	int aw=0,ah=0;
 	void*color=jpg2buf(path,bw,bh);
 	void*alpha=jpg2buf(apath,&aw,&ah);
 	void*muxed=addAlpha(color,*bw,*bh,alpha,aw,ah);
 	if(alpha)Free(alpha);
-	return muxed;
-	
+	sceUtilityUnloadAvModule(0);//implying sceMeBootStart(4)
+	return muxed;	
 }
