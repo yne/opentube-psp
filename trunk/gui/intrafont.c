@@ -19,7 +19,7 @@
 #include <string.h>
 
 #include "intrafont.h"
-#include "main.h"
+#include "core.h"
 
 
 static unsigned int __attribute__((aligned(16))) clut[16];
@@ -268,7 +268,7 @@ static int intraFontSwizzle(intraFont *font) {
 	unsigned int *src = (unsigned int*) font->texture;
 	static unsigned char *tData;
 
-	tData = (unsigned char*) Malloc(textureSize);
+	tData = (unsigned char*) Memalign(64,textureSize);
 	if(!tData) return 0;
 
 	int i,j;
@@ -453,7 +453,7 @@ intraFont* intraFontLoad(const char *filename, unsigned int options) {
     font->shadowColor = 0xFF000000;  //non-transparent black
 	font->altFont = NULL;            //no alternative font
 	font->filename = (char*)Malloc((strlen(filename)+1)*sizeof(char));
-	font->texture = (unsigned char*)Malloc(font->texWidth*font->texHeight>>1);
+	font->texture = (unsigned char*)Memalign(64,font->texWidth*font->texHeight>>1);
 	if (!font->filename || !font->texture) {
 		fclose(file);
 		intraFontUnload(font);
@@ -1143,11 +1143,11 @@ float intraFontPrintColumnUCS2Ex(intraFont *font, float x, float y, float column
 	sceKernelDcacheWritebackAll();
 	if (!(font->options & INTRAFONT_ACTIVE)) intraFontActivate(font);
 	
-	sceGuDisable(GU_DEPTH_TEST);
+	sceGuTexFilter(GU_NEAREST,GU_NEAREST);	
 	sceGuDrawArray(GU_SPRITES, GU_TEXTURE_16BIT|GU_COLOR_8888|GU_VERTEX_16BIT|GU_TRANSFORM_2D, (n_glyphs+n_sglyphs)<<1, 0, v);
-	if (font->fileType == FILETYPE_BWFON) //draw chars again without shadows for improved readability
-		sceGuDrawArray(GU_SPRITES, GU_TEXTURE_16BIT|GU_COLOR_8888|GU_VERTEX_16BIT|GU_TRANSFORM_2D, n_glyphs<<1, 0, v+(n_sglyphs<<1));
-	sceGuEnable(GU_DEPTH_TEST);
+//	if (font->fileType == FILETYPE_BWFON) //draw chars again without shadows for improved readability
+//		sceGuDrawArray(GU_SPRITES, GU_TEXTURE_16BIT|GU_COLOR_8888|GU_VERTEX_16BIT|GU_TRANSFORM_2D, n_glyphs<<1, 0, v+(n_sglyphs<<1));
+	sceGuTexFilter(GU_LINEAR,GU_LINEAR);
 	
 	if (scroll == 1) {
 		sceGuScissor(0, 0, 480, 272); //reset window to whole screen (test was previously enabled)
