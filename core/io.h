@@ -19,6 +19,12 @@
 #define FD2CNX(fd) (((fd&0x00FF00)>>8 )|0x01000000)
 #define FD2REQ(fd) (((fd&0xFF0000)>>16)|0x02000000)
 //0x00RRCCTT
-
+/*
+typedef struct{
+	int fd,th,curr,start,end,run,size;
+	void*buf;
+}Stream;
+*/
+int ioInit();
 #define FILESYS_H
 #endif

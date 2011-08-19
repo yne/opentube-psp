@@ -3,9 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <pspctrl.h>
+#include <psputility.h>
 #include "demuxer.h"
-#include "main.h"
-
+#include "core.h"
+#define try(A) do{A}while(0);
 #define OR :case
 #define sw(n) (((n>>24)&0xff)|((n<<8)&0xff0000)|((n>>8)&0xff00)|((n<<24)&0xff000000))
 #define sw64(n) (((n<<56)&0xFF)|((n<<48)&0xFF00)|((n<<40)&0xFF0000)|((n<<32)&0xFF000000)|((n<<24)&0xFF00000000)|((n<<16)&0xFF0000000000)|((n<<8)&0xFF000000000000)|((n<<0)&0xFF00000000000000))
@@ -23,26 +24,24 @@ char dummy_video[]={0x00,0x08,0x41,0x9a,0x04,0x0e,0x1f,0x80,0x7f,0xe0};
 PSP_MODULE_INFO("OpenTube.demux.mp4",0,0,0);
 int fd;unsigned size,type,tmp;//atom parsing
 char curType,*c=NULL;//atom content buffer
-OpenTube*ot;
 MP4 f;
-Demuxer dmx={getASample,getVSample};
-u32 read32(){
+void*video,*audio;
+int sm,ath,vth;
+u32  read32(){
 	u32 i;
-//	dlSync(fd,Seek(fd,0,SEEK_CUR)+4);
 	Read(fd,&i,4);
 	return sw(i);
 }
-int get(){
-	return (c=Realloc(c,size))?Read(fd,c,size):puts("Malloc error");
+int  get(){
+	return (c=Realloc(c,size))?Read(fd,c,size):Alert("Malloc error\n");
 }
 void skip(){
-//	dlSync(fd,Seek(fd,0,SEEK_CUR)+size);
 	Seek(fd,size,SEEK_CUR);
 }
-char* parse(){
+char*parse(){
 	size=read32()-8;
 	type=read32();
-//	puts("parse...");
+//	printf("size:%08X type:%08X\n",size,type);
 	if((type>0x7FFFFFFF)||(type<0x60000000))return "badAtom";//bad atom
 	switch(type){//parent atom must be in cased (otherwith they are skipped)
 		case 0x6d6f6f76 OR 0x7472616b OR 0x6d646961 OR 0x6d696e66 OR 0x7374626c:break;//moov|trak|mdia|minf|stbl=parent:dont skip them
@@ -61,7 +60,7 @@ char* parse(){
 					f.hz=((c[15+25]<<8)+(c[15+26]))&0xFFFF;
 					ot->dmx->Ahz=f.hz;
 				}else{
-					puts("unkAfmt");
+					Alert("unkAfmt\n");
 				}
 			}else	if(curType=='v'){
 				f.Vcodec=sw(((int*)c)[3]);
@@ -80,7 +79,7 @@ char* parse(){
 					for(int i=0;i<f.ppsLen;i++)
 						f.pps[i]=*(c+113+tmp+i);
 				}else{
-					puts("unkVfmt");
+					Alert("unkVfmt\n");
 				}
 			}
 		}break;
@@ -140,9 +139,10 @@ char* parse(){
 	}
 	return parse();
 }
-void rebuildVSpsc(){
+char*rebuildVSpsc(){
 	u32*spc=Malloc(f.VstszLen*sizeof(u32));//sample per chunk
 	u32*fst=Malloc(f.VstszLen*sizeof(u32));//first sample (absolute)
+	if(!spc||!fst)return("malloc error !\n");
 	for(int i=0,t=0,j=0,s=0;i<f.VstcoLen;i++){
 		spc[i]=f.VstscSpc[j];
 		fst[i]=s;
@@ -154,6 +154,7 @@ void rebuildVSpsc(){
 	Free(f.VstscFst);
 	f.VstscFst=fst;
 	u32*sid=Malloc(f.VstszLen*sizeof(u32));//trunk size
+	if(!sid)return("malloc2 error\n");
 	for(int i=0;i<f.VstcoLen;i++){
 		int size=0;
 		for(int j=f.VstscFst[i];j<f.VstscFst[i]+f.VstscSpc[i];j++)size+=f.Vstsz[j];
@@ -161,10 +162,12 @@ void rebuildVSpsc(){
 	}
 	Free(f.VstscSid);
 	f.VstscSid=sid;
+	return NULL;
 }
-void rebuildASpsc(){
+char*rebuildASpsc(){
 	u32*spc=Malloc(f.AstszLen*sizeof(u32));//sample per chunk
 	u32*fst=Malloc(f.AstszLen*sizeof(u32));//first sample (absolute)
+	if(!spc||!fst)return("malloc error !\n");
 	for(int i=0,t=0,j=0,s=0;i<f.AstcoLen;i++){
 		spc[i]=f.AstscSpc[j];
 		fst[i]=s;
@@ -176,6 +179,7 @@ void rebuildASpsc(){
 	Free(f.AstscFst);
 	f.AstscFst=fst;
 	u32*sid=Malloc(f.AstszLen*sizeof(u32));//trunk size
+	if(!sid)return("malloc2 error\n");
 	for(int i=0;i<f.AstcoLen;i++){
 		int size=0;
 		for(int j=f.AstscFst[i];j<f.AstscFst[i]+f.AstscSpc[i];j++)size+=f.Astsz[j];
@@ -183,6 +187,7 @@ void rebuildASpsc(){
 	}
 	Free(f.AstscSid);
 	f.AstscSid=sid;
+	return NULL;
 }
 void rebuild(u32 szLen,u32*sz,u32 coLen,u32*scSpc,u32*scFst){//f.VstszLen f.Vstsz f.VstcoLen f.VstscSpc f.VstscFst
 	u32*spc=Malloc(szLen*sizeof(u32));//sample per chunk
@@ -206,104 +211,106 @@ void rebuild(u32 szLen,u32*sz,u32 coLen,u32*scSpc,u32*scFst){//f.VstszLen f.Vsts
 		sid[i]=size;
 //	printf("%i/%i %08X\n",i,coLen,sid[i]);
 	}
-	puts("done B");
+	Alert("done B\n");
 	Free(f.VstscSid);
 	f.VstscSid=sid;	
 }
-void*video;
-void* getVSample(int s){
+void*getVSample(int s){
 	int t,pos=0;
 	for(t=0;(t<f.VstcoLen)&&(f.VstscFst[t]<=s);t++);//seek to trunk+1
 	for(int i=f.VstscFst[t-1];i<s;i++)pos+=f.Vstsz[i];//seek to sample in trunk
 	video=Realloc(video,f.Vstsz[s]);
-	Seek(f.Vfd,f.Vstco[t-1]+pos,SEEK_SET);
-	Read(f.Vfd,video,f.Vstsz[s]);
-//	printf("%p = %08X %i\n",video,offset[s],f.Vstsz[s]);
+//	printf("%i %08X %08X\n",s,f.Vstco[t-1]+pos,f.Vstsz[s]);
+	if(fd>64){
+		ReadX(video,f.Vstco[t-1]+pos,f.Vstsz[s]);//read from ring buffer
+	}else{
+		Seek(f.Vfd,f.Vstco[t-1]+pos,SEEK_SET);
+		Read(f.Vfd,video,f.Vstsz[s]);
+	}
 	return video;
 }
-void*audio;
-void* getASample(int s){
+void*getASample(int s){
 	int t,pos=0;
 	for(t=0;(t<f.AstcoLen)&&(f.AstscFst[t]<=s);t++);//seek to trunk+1
 	for(int i=f.AstscFst[t-1];i<s;i++)pos+=f.Astsz[i];//seek to sample in trunk
 	audio=Realloc(audio,f.Astsz[s]);
-	Seek(f.Afd,f.Astco[t-1]+pos,SEEK_SET);
-	Read(f.Afd,audio,f.Astsz[s]);
+	if(fd>64){
+		ReadX(audio,f.Astco[t-1]+pos,f.Astsz[s]);//read from ring buffer
+	}else{
+		Seek(f.Afd,f.Astco[t-1]+pos,SEEK_SET);
+		Read(f.Afd,audio,f.Astsz[s]);	
+	}
 	return audio;
 }
-char* onLoad(const char* file){
-	puts("opening");
-	if((fd=Open(file,PSP_O_RDONLY,0777))<0)return "fileErr";
-	char*err=parse();
-	Close(fd);
-	if(err){puts(err);return err;}
-
-	if((err=ot->sys->findCodec(NULL,f.Acodec)))return err;
-	if(!(ot->dmx->Aload&&ot->dmx->Aplay&&ot->dmx->Aseek&&ot->dmx->Astop))return "badAApi";
-	if((f.Afd=Open(file,PSP_O_RDONLY,0777))<0)return "fileErr";
-	rebuildASpsc();
-	//rebuild(f.AstszLen,f.Astsz,f.AstcoLen,f.AstscSpc,f.AstscFst);
-	if((err=ot->dmx->Aload()))return err;
-	
-	if((err=ot->sys->findCodec(NULL,f.Vcodec)))return err;
-	if(!(ot->dmx->Vload&&ot->dmx->Vplay&&ot->dmx->Vseek&&ot->dmx->Vstop))return "badVApi";
-	if((f.Vfd=Open(file,PSP_O_RDONLY,0777))<0)return "fileErr";
-	rebuildVSpsc();
-	//rebuild(f.VstszLen,f.Vstsz,f.VstcoLen,f.VstscSpc,f.VstscFst);
-	if((err=ot->dmx->Vload()))return err;
-
-	//int tmp=Open("audio",PSP_O_CREAT|PSP_O_WRONLY,0777);
-	//for(int i=0;i<f.AstcoLen;i++)
-	//	sceIoWrite(tmp,getASample(i),f.Astsz[i]);
-	//Close(tmp);
-	
-	//int dummy;sceDisplayGetMode(&ot->lcd->type,dummy,dummy);
-	ot->lcd->type=PSP_DISPLAY_PIXEL_FORMAT_8888;
-	ot->lcd->size=f.width>480?720:512;
-	//printf("%08X\n",f.Vcodec);
+char*onLoad(char* file){
+	Alert("onLoad\n");
+	if(Str.th){fd=Str.th;Str.curr=0;}//stream thread is runing, use it !
+	else if((fd=Open(file,/*PSP_O_NOWAIT|*/PSP_O_RDONLY,0777))<0)return "fileErr";
+	char*err;
+	if((err=parse()))return err;
+	sceUtilityLoadAvModule(0);//implying sceMeBootStart(2)
+	do{
+		if((err=FindCodec(NULL,f.Acodec)))break;//return err;
+		if((f.Afd=fd>64?fd:Open(file,PSP_O_RDONLY,0777))<0)return "fileErr";
+		if((err=rebuildASpsc()))break;//rebuild(f.AstszLen,f.Astsz,f.AstcoLen,f.AstscSpc,f.AstscFst);
+		if((err=ot->dmx->a->load()))break;
+	}while(0);
+	do{
+		if((err=FindCodec(NULL,f.Vcodec)))break;//return err;
+		if((f.Vfd=fd>64?fd:Open(file,PSP_O_RDONLY,0777))<0)return "fileErr";
+		if((err=rebuildVSpsc()))return err;//rebuild(f.VstszLen,f.Vstsz,f.VstcoLen,f.VstscSpc,f.VstscFst);
+		if((err=ot->dmx->v->load()))return err;
+	}while(0);
+//	ot->lcd->type=PSP_DISPLAY_PIXEL_FORMAT_8888;
+//	ot->lcd->size=f.width>480?720:512;
+	return err;
+}
+int  Video(unsigned args,void*argp){
+	sm++;//sceKernelSignalSema(sm,1);
+	if(ot->dmx->v->play)ot->dmx->v->play();else Alert("noVplay");
+	sm--;//sceKernelSignalSema(sm,-1);
+	Alert("v ok\n");
 	return 0;
 }
-int Video(unsigned args,void*argp){
-	ot->dmx->Vplay();
-	((int*)argp)[0]=0;
-	puts("v ok");
-	return sceKernelExitDeleteThread(0);
+int  Audio(unsigned args,void*argp){
+	sm++;//sceKernelSignalSema(sm,1);
+	if(ot->dmx->a->play)ot->dmx->a->play();else Alert("noAplay");
+	sm--;//sceKernelSignalSema(sm,-1);
+	Alert("a ok\n");
+	return 0;
 }
-int Audio(unsigned args,void*argp){
-	ot->dmx->Aplay();
-	((int*)argp)[0]=0;
-	puts("a ok");
-	return sceKernelExitDeleteThread(0);
-}
-int ctrlOk(){
-	if(ot->sys->pad!=ot->sys->_pad)if(ot->sys->pad&PSP_CTRL_CIRCLE)return 0;
+int  ctrlOk(){
+	if(ot->sys->pad!=ot->sys->_pad)
+		if(ot->sys->pad&PSP_CTRL_CIRCLE)return 0;
 	return 1;
 }
-char* onPlay(){
-	puts("start playback");
-	int vTh=sceKernelCreateThread("video",Video,0x11,0x10000,0,0);
-	int aTh=sceKernelCreateThread("audio",Audio,0x11,0x10000,0,0);
-	sceKernelStartThread(vTh,4,&vTh);
-	sceKernelStartThread(aTh,4,&aTh);
-	while(ctrlOk()&&(vTh&&aTh))sceDisplayWaitVblankStart();
-	if(vTh)sceKernelTerminateDeleteThread(vTh);
-	if(aTh)sceKernelTerminateDeleteThread(aTh);
-	puts("end");
+char*onPlay(){
+	Alert("start playback\n");
+	//for(int i=0;i<100;i++)printf("%i %08X\n",i,f.Vstsz[i]);
+	sm=0;//sm=sceKernelCreateSema("test",0x0,0,4,NULL);
+	sceKernelStartThread(ath=sceKernelCreateThread("OpenTube.out.video",Video,0x20,0x10000,0,0),0,NULL);
+	sceKernelStartThread(vth=sceKernelCreateThread("OpenTube.out.audio",Audio,0x20,0x10000,0,0),0,NULL);
+	Alert("wait\n");
+	do sceDisplayWaitVblankStart();//sceKernelWaitSema(sm,0,0);
+	while(sm);//sceKernelDeleteSema(sm);
+	sceKernelTerminateDeleteThread(ath);//self exit & terminate both lead to a crash
+	sceKernelTerminateDeleteThread(vth);//so i kill them for here
+	Alert("end\n");
 	return ot->sys->err;
 }
-char* onSeek(int w,int o){
-	puts("seek...");
-	ot->dmx->Aseek(w,o);
-	ot->dmx->Vseek(w,o);
+char*onSeek(int w,int o){
+	Alert("seek...\n");
+	ot->dmx->a->seek(w,o);
+	ot->dmx->v->seek(w,o);
 	return 0;
 }
-int unload(SceSize args,void*argp){
+int  unload(SceSize args,void*argp){
 	do sceKernelDelayThread(1000);
 	while(sceKernelSelfStopUnloadModule(1,0,NULL)<0);
 	return 0;
 }
-char* onStop(){
-	puts("unloading demuxer");
+char*onStop(){
+	Alert("unloading demuxer\n");
 	Realloc(video,0);Realloc(audio,0);
 //free atom list
 	Free(f.sps);Free(f.pps);
@@ -312,27 +319,22 @@ char* onStop(){
 	Free(f.VstscSid);Free(f.AstscSid);
 	Free(f.Vstsz);   Free(f.Astsz);
 	Free(f.Vstco);   Free(f.Astco);
-	ot->dmx->Astop();
-	ot->dmx->Vstop();
-	if(f.Afd>0)Close(f.Afd);
-	if(f.Vfd>0)Close(f.Vfd);
-	ot->sys->onLoad=NULL;
-	ot->sys->onPlay=NULL;
-	ot->sys->onSeek=NULL;
-	ot->sys->onStop=NULL;
+	if(ot->dmx->a->stop)ot->dmx->a->stop();
+	if(ot->dmx->v->stop)ot->dmx->v->stop();
+	sceUtilityUnloadAvModule(0);//implying sceMeBootStart(4)
+	if(fd<64){
+		if(f.Afd>0)Close(f.Afd);
+		if(f.Vfd>0)Close(f.Vfd);
+	}else Close(fd);
 	ot->dmx=NULL;
-	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x1000,0,0),0,NULL);//to be able to return
+	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x10000,0,0),0,NULL);//to be able to return
 	return NULL;
 }
-int module_start(int args,void*argp){
-	if(args!=sizeof(OpenTube*))return 1;//return if no context
+Demuxer dmx={onLoad,onPlay,onSeek,onStop,getASample,getVSample};
+int  module_start(int args,void*argp){
+	if((ot=otGetCtx())<0)return 1;
+	Alert("mp4 demux loaded\n");
 	dmx.f=&f;
-	ot=(OpenTube*)((u32*)argp)[0];
-	ot->sys->onLoad=onLoad;
-	ot->sys->onPlay=onPlay;
-	ot->sys->onSeek=onSeek;
-	ot->sys->onStop=onStop;
 	ot->dmx=&dmx;
-	puts("mp4 demux loaded");
 	return 0;
 }

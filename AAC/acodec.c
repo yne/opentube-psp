@@ -1,17 +1,16 @@
 #include <pspkernel.h>
 #include <pspaudio.h>
-#include <psputility.h>
+#include <pspctrl.h>
 #include <stdio.h>
 #include "acodec.h"
-#include "demuxer.h"
-#include "main.h"
+#include "core.h"
 
 PSP_MODULE_INFO("OpenTube.codec.aac",0,0,0);
 OpenTube*ot;
-Acodec a;
+Acodec a={load,play,seek,stop};
 
 char*load(){
-	puts("aload");
+	Alert("aload\n");
 	a.au.freq=ot->dmx->Ahz;
 	a.chan=sceAudioChReserve(PSP_AUDIO_NEXT_CHANNEL,PSP_AUDIO_SAMPLE_ALIGN(1024),PSP_AUDIO_FORMAT_STEREO);
 	if(sceAudiocodecCheckNeedMem(&a.au, PSP_CODEC_AAC)<0)return "chekmem";
@@ -21,8 +20,10 @@ char*load(){
 }
 unsigned out[2][1024*2] __attribute__((aligned(64)));
 char*play(){
-	puts("aplay");
+	Alert("aplay\n");
 	for(int s=0;s<ot->dmx->f->AstszLen;s++){
+//		Alert("audio ...\r");
+		if(/*ot->sys->pad!=ot->sys->_pad&&*/ot->sys->pad&PSP_CTRL_CIRCLE)break;
 		a.au.src=ot->dmx->getASample(s);
 		a.au.srcLen=ot->dmx->f->Astsz[s];
 		a.au.dst=out[s%2];
@@ -33,7 +34,7 @@ char*play(){
 	return NULL;
 }
 char*seek(int t,int o){
-	puts("aplay");
+	Alert("aplay\n");
 	return NULL;
 }
 int unload(SceSize args,void*argp){
@@ -42,26 +43,19 @@ int unload(SceSize args,void*argp){
 	return 0;
 }
 char*stop(){
-	puts("astop");
+	Alert("astop\n");
 	if(a.au.EDRAM)sceAudiocodecReleaseEDRAM(&a.au);
 	if(a.chan)sceAudioChRelease(a.chan);
-	ot->dmx->Aload=NULL;
-	ot->dmx->Aplay=NULL;
-	ot->dmx->Aseek=NULL;
-	ot->dmx->Astop=NULL;
-	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x1000,0,0),0,NULL);//to be unable to return
+	ot->dmx->a=NULL;
+	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x10000,0,0),0,NULL);//to be unable to return
 	return NULL;
 }
 int module_stop(int args,void*argp){
 	return 0;
 }
 int module_start(int args,void*argp){
-	puts("AAC codec loaded");
-	if(args!=4)return 0;//return if no context
-	ot=(OpenTube*)((u32*)argp)[0];
-	ot->dmx->Aload=load;
-	ot->dmx->Aplay=play;
-	ot->dmx->Aseek=seek;
-	ot->dmx->Astop=stop;
+	if((ot=otGetCtx())<0)return 1;
+	Alert("AAC codec loaded\n");
+	ot->dmx->a=&a;
 	return 0;
 }

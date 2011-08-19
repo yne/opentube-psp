@@ -1,8 +1,8 @@
 #ifndef ACODEC_H
-#include <audiocodec.h>
-typedef struct{
-	int chan;
-	AuCodec au;
-}Acodec;
+extern char* load();
+extern char* play();
+extern char* seek();
+extern char* stop();
+
 #define ACODEC_H
 #endif

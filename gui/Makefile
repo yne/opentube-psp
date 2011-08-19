@@ -2,7 +2,7 @@ TARGET = ../gui
 OBJS = jpg.o libccc.o intrafont.o graphic.o
 OBJS+= ../lib/OpenTube.o
 INCDIR = ../lib ../core
-CFLAGS = -G0 -Wall -Os -std=c99 -DGU_IMPORT
+CFLAGS = -G0 -Wall -O3 -std=c99 -DGU_IMPORT
 LDFLAGS = -mno-crt0 -nostartfiles
 
 BUILD_PRX = 1
