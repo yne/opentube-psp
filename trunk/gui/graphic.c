@@ -272,7 +272,7 @@ int  down(){
 //int hfd=0;
 void left(){
 //	clean();
-	Play("http://192.168.0.102/480p.mp4");
+	Play("http://"TEST_SERVER"/480p.mp4");
 //	restor();
 }
 char tmp[5];

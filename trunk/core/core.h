@@ -3,7 +3,10 @@
 #include <pspmpeg.h>
 #include <audiocodec.h>
 #include <mpegbase.h>
+#include <audiocodec.h>
+#include "gu.h"
 
+#define TEST_SERVER "192.168.0.100"
 #define $(A) sceIoWrite(2,A,sizeof(A))
 
 #define HTTP_SAVE_RAM 0x1//return pointer to the whole file content
@@ -40,8 +43,6 @@
 
 #define Draw ot->gui->draw
 
-void sceGuStartList(int mode);
-#include <audiocodec.h>
 typedef struct{//MP4
 	u32 time,nalPreLen;
 	u32 spsLen,ppsLen;

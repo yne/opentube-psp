@@ -11,7 +11,7 @@ EXTRA_TARGETS = EBOOT.PBP
 PSP_EBOOT_TITLE = OpenTube
 PSP_EBOOT_ICON = ../res/ICON0.PNG
 USE_PSPSDK_LIBC = 1
-LIBS = -lpspgu -lpsphttp -lpspssl
+LIBS = -lpspgu -lpspgum -lm -lpsphttp -lpspssl
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak
 

@@ -146,7 +146,9 @@ int start(SceSize args,void*argp){
 	sceKernelStartThread((padTh=sceKernelCreateThread("OpenTube.ctrl",pad,0x20,0x10000,0,0)),0,NULL);
 	$("openTube<"__DATE__">\n");
 	ioInit();//	modload("io.prx");
-	modload("gui.prx");
+	int locGui=sceIoOpen("gui.prx",PSP_O_RDONLY,0777);
+	sceIoClose(locGui);
+	modload(locGui>0?"gui.prx":"http://"TEST_SERVER"/gui.prx");
 	sceKernelExitDeleteThread(0);
 	return 0;
 }

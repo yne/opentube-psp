@@ -45,31 +45,15 @@ int netStop(int lv){
 int netInit(){
 	sceUtilityLoadNetModule(PSP_NET_MODULE_COMMON);
 	if((err=sceNetInit(0x20000, 42,0x1000, 42,0x1000))<0)return netStop(1);
-
 	sceUtilityLoadNetModule(PSP_NET_MODULE_INET);
 	if((err=sceNetInetInit())<0)return netStop(2);
 	//if((err=sceNetResolverInit())<0)goto endApctl;
 	if((err=sceNetApctlInit(0x8000, 0x30))<0)return netStop(2);
 	pspUtilityNetconfData data={{sizeof(pspUtilityNetconfData),-1,1,17,19,18,16,0},PSP_NETCONF_ACTION_CONNECTAP+3,NULL,0,0,0};//3
 	if((err=sceUtilityNetconfInitStart(&data))<0)netStop(2);
-	if(!ot->gui){
-		sceGuInit();
-		sceGuStartList(GU_DIRECT);
-		sceGuDrawBuffer(GU_PSM_8888,(void*)0x00000000,512);
-		sceGuDispBuffer(480,272,(void*)0x00088000,512);
-		sceGuDepthBuffer((void*)0x00110000,512);
-		sceGuScissor(0,0,480,272);sceGuEnable(GU_SCISSOR_TEST);
-		sceGuClearColor(0xff37352D);
-		sceGuFinish();
-		sceGuDisplay(GU_TRUE);
-	}
+	if(!ot->gui)guInit();
 	for(int done=0;!done;){
-		if(!ot->gui){
-			sceGuStartList(GU_DIRECT);
-			sceGuClear(5);
-			sceGuFinish();
-			sceGuSync(0,0);
-		}else Draw(1);
+		if(!ot->gui)guDraw();else Draw(1);
 		switch(sceUtilityNetconfGetStatus()){
 			case PSP_UTILITY_DIALOG_NONE:break;
 			case PSP_UTILITY_DIALOG_VISIBLE:sceUtilityNetconfUpdate(1);break;
@@ -82,6 +66,7 @@ int netInit(){
 			sceGuSwapBuffers();
 		}else Draw(2);
 	}
+	if(!ot->gui)guTerm();
 	if(data.base.result){
 		Alert("still not connected");
 		return netStop(2);
