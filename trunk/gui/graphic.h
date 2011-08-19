@@ -16,11 +16,12 @@ int ready=0;//gu inited
 int dispBufferNumber=0;
 
 typedef struct{short visible,pos;char title[256];}TopBar;
+typedef struct{short visible,pos;char title[256];}StatBar;
 typedef struct{short visible,pos,y,h;}ScrollBar;
 typedef struct{short visible,pos,curr;}Panel;
 typedef struct{short visible,pos,curr,len,size;char**p;unsigned color,shadow;}List;
 typedef struct{short visible,x,y,_x,_y;}Cursor;
 typedef struct{int tbw,h;void*p;}Wall;
-typedef struct{short u,v,c,x,y,z;}Vertex;
+typedef struct{short u,v,x,y,z;}Vertex;
 
 #endif

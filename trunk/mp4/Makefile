@@ -1,6 +1,6 @@
-TARGET = ../mp4.0000001C.m4a.00000020
+TARGET = ../0000001C.00000020.00000018.mp4
 OBJS = demuxer.o
-#OBJS+= lib/bridge.o lib/mpegbase.o lib/sceMpeg.o
+OBJS+= ../lib/OpenTubeCtx.o
 INCDIR = ../lib ../core
 CFLAGS = -G0 -Wall -O3 -std=c99
 LDFLAGS =  -mno-crt0 -nostartfiles

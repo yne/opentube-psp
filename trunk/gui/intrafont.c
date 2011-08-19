@@ -715,7 +715,7 @@ void intraFontActivate(intraFont *font) {
 
 	sceGuClutMode(GU_PSM_8888, 0, 255, 0);
 	sceGuClutLoad(2, clut);
-	sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
+//	sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
 	sceGuTexMode(GU_PSM_T4, 0, 0, (font->options & INTRAFONT_CACHE_ASCII) ? 1 : 0);
 	sceGuTexImage(0, font->texWidth, font->texWidth, font->texWidth, font->texture);
 }
@@ -1143,11 +1143,11 @@ float intraFontPrintColumnUCS2Ex(intraFont *font, float x, float y, float column
 	sceKernelDcacheWritebackAll();
 	if (!(font->options & INTRAFONT_ACTIVE)) intraFontActivate(font);
 	
-	sceGuTexFilter(GU_NEAREST,GU_NEAREST);	
+//	sceGuTexFilter(GU_NEAREST,GU_NEAREST);	
 	sceGuDrawArray(GU_SPRITES, GU_TEXTURE_16BIT|GU_COLOR_8888|GU_VERTEX_16BIT|GU_TRANSFORM_2D, (n_glyphs+n_sglyphs)<<1, 0, v);
 //	if (font->fileType == FILETYPE_BWFON) //draw chars again without shadows for improved readability
 //		sceGuDrawArray(GU_SPRITES, GU_TEXTURE_16BIT|GU_COLOR_8888|GU_VERTEX_16BIT|GU_TRANSFORM_2D, n_glyphs<<1, 0, v+(n_sglyphs<<1));
-	sceGuTexFilter(GU_LINEAR,GU_LINEAR);
+//	sceGuTexFilter(GU_LINEAR,GU_LINEAR);
 	
 	if (scroll == 1) {
 		sceGuScissor(0, 0, 480, 272); //reset window to whole screen (test was previously enabled)

@@ -4,7 +4,8 @@
 #include <string.h>
 #include <psputility.h>
 #include <pspctrl.h>
-#include "main.h"
+#include "core.h"
+#include "io.h"
 //#include "main.private.h"
 #define sw(n) (((n>>24)&0xff)|((n<<8)&0xff0000)|((n>>8)&0xff00)|((n<<24)&0xff000000))
 
@@ -13,6 +14,10 @@ PSP_HEAP_SIZE_KB(9*1024);
 
 OpenTube*ot;//OpenTube core context
 extern void __psp_free_heap();
+int Strlen(char*str){
+	int i;for(i=0;str[i]!=0 && str[i]!=255;i++);
+	return i;
+}
 int modload(char* path){
 //	if(((u32*)path)[0]==0x70747468 && (((u32*)path)[1]&0xFFFFFF)==0x632F2F3A)
 	int is_local=strncmp("http://",path,7);
@@ -23,7 +28,7 @@ int modload(char* path){
 		path=fname;
 	}
 	int ret,modid=sceKernelLoadModule(path, 0,0);
-	if(modid>=0)sceKernelStartModule(modid, sizeof(ot), &ot, &ret, NULL);
+	if(modid>=0)sceKernelStartModule(modid,0,NULL, &ret, NULL);
 	if(!is_local)sceIoRemove(path);//removed once unloaded ?!
 	return modid;
 }
@@ -38,15 +43,30 @@ int modstun(u32 modid){
 	int status=sceKernelStopModule(modid, 0, 0, &status, NULL);
 	return sceKernelUnloadModule(modid);
 }
-int alert(char*str/*,int lv*/){//0:fatal,1:error,2:warning,3:info
-	return sceIoWrite(2,str?str:"(null)",str?strlen(str):6);
+int print(char*str,int lv){//0:fatal,1:error,2:alert,3:debug
+	if(!str)return sceIoWrite(2,"(null)",6);
+	char out[256];
+	char*pre=NULL,*su=NULL;
+	switch(lv){//todo mix all space content \n in a char tmp[]
+		case 0 :pre=""; su="\n";break;
+		case 1 :pre=" ";su="\n";break;
+		case 2 :pre="  "; su="";break;
+		case 3 :pre="   ";su="";break;
+		default:pre="";su="";
+	}
+	strcat(strncat(strcpy(out,pre),str,250),su);
+	return sceIoWrite(2,out,Strlen(out));
 }
 void* my_malloc(unsigned s){//64
-	if(s&0x3f)s+=64-(s&0x3f);
-	void* p=memalign(64,s);
-	if(p)memset(p,0,s);
+	void* p=malloc(s);
 //	printf("malloc:%p\n",p);
-	return p;//malloc(size);
+	return p;
+}
+void* my_memalign(unsigned bit,unsigned s){//64
+//	if(s&(bit-1))s+=bit-(s&(bit-1));//round up
+	void* p=memalign(bit,s);
+//	printf("memalign%i:%p\n",bit,p);
+	return p;
 }
 void* my_realloc(void*p,unsigned size){
 //	printf("realloc %p,%i\n",p,size);
@@ -63,28 +83,28 @@ char* id2str(u32 id){
 		_id2str[7-i]="0123456789ABCDEF"[(id>>(4*i))&0xF];
 	return _id2str;
 }
-char* findCodec(const char* name,unsigned id){//load a codec from name or id
-	int fd,uid=0;
+char* findCodec(char* name,unsigned id){//load a codec from name or id
+	int fd,uid=0;char*err=NULL;
 	if((fd=sceIoDopen(CWD))<0)return "bad codec dir";
 	SceIoDirent ent;char abs_ent[256]="";
-	const char*mime=name?name:id2str(id);
-	printf("searching codec for ");puts(mime);
+	char*mime=name?name:id2str(id);
+	Alert("searching codec for");Alert(mime);$("\n");
 	while(uid<=0 && sceIoDread(fd,&ent)>0)
 		if(strstr(ent.d_name,mime))
 			uid=modload(strcat(strcat(abs_ent,CWD),ent.d_name));
-	return uid>0?NULL:"no codec found";
+	sceIoDclose(fd);
+	if(uid<=0){err="no codec found";Error(err);}
+	return err;
 }
-char* play(const char* file){
+char* play(char* file){
 	char*err=NULL;int mime;
-	int fd=sceIoOpen(file,PSP_O_RDONLY,0777);
-	sceIoRead(fd,&mime,4);
+	int fd=Open(file,PSP_O_NOWAIT|PSP_O_RDONLY,0777);
+	Read(fd,&mime,4);
 	if((err=findCodec(NULL,mime)))return(err);
-	sceIoClose(fd);
-	if(!(ot->sys->onPlay&&ot->sys->onLoad&&ot->sys->onSeek&&ot->sys->onStop))return "missing function";
-	puts("ready !");
-	if(!(err=ot->sys->onLoad(file)))
-		err=ot->sys->onPlay();//blocking
-	ot->sys->onStop();
+	if(!(err=ot->dmx->load(file)))
+		err=ot->dmx->play();//blocking
+	ot->dmx->stop();
+	Close(fd);
 	return err;
 }
 int padTh;
@@ -107,46 +127,40 @@ int pad(SceSize args,void*argp){
 }
 int module_stop(SceSize args, char *argp){
 	__psp_free_heap();
-	puts("core unload");
+	$("core unload\n");
 	return 0;
 }
 int stop(){
-	if(ot->sys->onStop)ot->sys->onStop();//stop current playing
-	if(!ot->io)puts("no IO");
-	//	if(modGui>0)modstun(modGui);
-	if(ot->io&&ot->io->unload)ot->io->unload();else puts("no OI unload CB");
+	if(ot->dmx)ot->dmx->stop();//stop current playing
+	if(ot->gui)ot->gui->stop();//if(modGui>0)modstun(modGui);
+	ot->io->unload();
 	sceKernelTerminateDeleteThread(padTh);
-	sceUtilityUnloadAvModule(0);
-	module_stop(0,NULL);
 	if(CWD[0]=='m')sceKernelExitGame();//ms0
 	sceKernelSelfStopUnloadModule(1,0,NULL);//host0
 	return 0;
 }
 int start(SceSize args,void*argp){
-	if(!(ot->me->pool=memalign(0x400000,0x400000)))return -1;//first malloc
+	if(!(ot->me->pool=Memalign(0x400000,0x200000)))return -1;//first malloc
 	ot->me->bootNid=0x051C1601;
 	sceIoChdir(CWD);
-	sceUtilityLoadAvModule(0);
-	sceKernelStartThread((padTh=sceKernelCreateThread("OpenTube.ctrl",pad,0x11,0x10000,0,0)),0,NULL);
-	modload("io.prx");
-	char*result=NULL;
-	Open("http://gdata.youtube.com/feeds/api/videos?q=Djmax%20BGA&start-index=1&max-results=20&v=1",HTTP_SAVE_RAM,(int)&result);
-
-//	modload("gui.prx");
-//	modload("http://opentube-psp.googlecode.com/files/test.prx");
+	sceKernelStartThread((padTh=sceKernelCreateThread("OpenTube.ctrl",pad,0x20,0x10000,0,0)),0,NULL);
+	$("openTube<"__DATE__">\n");
+	ioInit();//	modload("io.prx");
+	modload("gui.prx");
 	sceKernelExitDeleteThread(0);
 	return 0;
 }
 MeCtx me;
-CoreSys sys={NULL,"",0,stop,modstun,modload,alert,my_free,my_realloc,my_malloc,sudo,findCodec,play};
-Display lcd={1,0x44000000,0x44000000,512,3,0};//PSP_DISPLAY_PIXEL_FORMAT_8888
+CoreSys sys={NULL,"",0,stop,modstun,modload,print,my_free,my_realloc,my_memalign,my_malloc,sudo,findCodec,play};
+Display lcd={1,0x44000000,0x44088000,512,3,0};//PSP_DISPLAY_PIXEL_FORMAT_8888
 OpenTube Ot={&sys,&lcd,NULL,NULL,NULL,&me};//OpenTube core context
+OpenTube*otGetCtx(){return &Ot;}
 int module_start(SceSize args,char*argp){
 	if(!args)return 1;
 	ot=&Ot;
 	char *argv[16+1];int argc=0;
-	for(int i=0;(i+=strlen(argv[argc++]=&((char*)argp)[i])+1)<args;);
-	for(int i=strlen(argv[0])-1;i;i--)if(argv[0][i]=='/'){argv[0][i+1]=0;break;};
+	for(int i=0;(i+=Strlen(argv[argc++]=&((char*)argp)[i])+1)<args;);
+	for(int i=Strlen(argv[0])-1;i;i--)if(argv[0][i]=='/'){argv[0][i+1]=0;break;};
 	memcpy(CWD,argv[0],256);
-	return sceKernelStartThread(sceKernelCreateThread("OpenTube.bootstrap",start,0x11,0x10000,0,0),args,argp);
+	return sceKernelStartThread(sceKernelCreateThread("OpenTube.bootstrap",start,0x20,0x10000,0,0),args,argp);
 }
