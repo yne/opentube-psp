@@ -42,6 +42,7 @@
 #define Str ot->io->str
 
 #define Draw ot->gui->draw
+#define Edit ot->gui->edit
 
 typedef struct{//MP4
 	u32 time,nalPreLen;
@@ -90,6 +91,7 @@ typedef struct{//Graphic
 	char*(*init)();
 	char*(*stop)();
 	char*(*draw)(int type);
+	char*(*edit)(int what,void*arg);
 }Graphic;
 typedef struct{//FileSys
 	int(*open)(char* path,int mode,int flag);

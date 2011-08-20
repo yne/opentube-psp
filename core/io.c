@@ -53,7 +53,7 @@ int netInit(){
 	if((err=sceUtilityNetconfInitStart(&data))<0)netStop(2);
 	if(!ot->gui)guInit();
 	for(int done=0;!done;){
-		if(!ot->gui)guDraw();else Draw(1);
+		if(!ot->gui)guDraw();else Draw(1|2);
 		switch(sceUtilityNetconfGetStatus()){
 			case PSP_UTILITY_DIALOG_NONE:break;
 			case PSP_UTILITY_DIALOG_VISIBLE:sceUtilityNetconfUpdate(1);break;
@@ -64,7 +64,7 @@ int netInit(){
 		if(!ot->gui){
 			sceDisplayWaitVblankStart();
 			sceGuSwapBuffers();
-		}else Draw(2);
+		}else Draw(4|8);
 	}
 	if(!ot->gui)guTerm();
 	if(data.base.result){
