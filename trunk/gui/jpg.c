@@ -8,41 +8,37 @@
 #define MIN(A,B) (A<B?A:B)
 
 void*jpg2buf(char*path,int*w,int*h){
-	int fd,i=0,_w=1;
-	if((fd=sceIoOpen(path,PSP_O_RDONLY,0777))<0)return NULL;
-	sceJpegInitMJpeg();
-	int size=sceIoLseek32(fd,0,SEEK_END);
-	u8* data=Malloc(size);
+	int fd=0,size,i=0,_w=1;*w=0,*h=0;char*res=NULL;u8*f=NULL;
+	if(sceJpegInitMJpeg())return "jpgInit";
+	if((fd=sceIoOpen(path,PSP_O_RDONLY,0777))<0){res="fileErr";goto err;}
+	if(!(f=Malloc((size=sceIoLseek32(fd,0,SEEK_END))))){res="malloc";goto err;}
 	sceIoLseek32(fd,0,SEEK_SET);
-	sceIoRead(fd,data,size);
-	if(!(data[i++]==0xFF&&data[i++]==0xD8&&data[i++]==0xFF&&data[i++]==0xE0))goto err;//invalid SOI header
-	if(!(data[i+2]=='J' &&data[i+3]=='F' &&data[i+4]=='I' &&data[i+5]=='F' ))goto err;//invalid JFIF
-	for(int len=(data[i]<<8)+data[i+1];i+=len;){//seek to 
-		if(i>=size)goto err;//Check to protect against segmentation faults
-		if(data[i] != 0xFF)goto err;//Check that we are truly at the start of another block
-		if(data[i+1] == 0xC0){//0xFFC0 is the "Start of frame" marker which contains the file size
+	sceIoRead(fd,f,size);
+	if(!(f[i++]==0xFF&&f[i++]==0xD8&&f[i++]==0xFF&&f[i++]==0xE0)){res="!SOI";goto err;}
+	if(!(f[i+2]=='J' &&f[i+3]=='F' &&f[i+4]=='I' &&f[i+5]=='F' )){res="!JFIF";goto err;}
+	for(int len=(f[i]<<8)+f[i+1];i+=len;){//seek to 
+		if(i>=size){res="!size";goto err;}//Check to protect against segmentation faults
+		if(f[i]!=0xFF){res="!start";goto err;}//Check that we are truly at the start of another block
+		if(f[i+1]==0xC0){//0xFFC0 is the "Start of frame" marker which contains the file size
 		//The structure of the 0xFFC0 block is quite simple [0xFFC0][ushort length][uchar precision][ushort x][ushort y]
-			*h=(data[i+5]<<8)+data[i+6];
-			*w=(data[i+7]<<8)+data[i+8];
+			*h=(f[i+5]<<8)+f[i+6];
+			*w=(f[i+7]<<8)+f[i+8];
 			break;
 		}else{
 			i+=2;//Skip the block marker
-			len=(data[i]<<8)+data[i+1];//Go to the next block
+			len=(f[i]<<8)+f[i+1];//Go to the next block
 		}
 	}
 	while((_w<<=1)<*w);
-	sceJpegCreateMJpeg(*w,*h);
-	void*raw=Memalign(64,(_w)*(*h)*4);
-	sceJpegDecodeMJpeg(data,size,raw,0);
-	Free(data);
+	if(sceJpegCreateMJpeg(*w,*h)){*w=0;res="creaMJp";goto err;}
+	if(!(res=Memalign(64,(_w)*(*h)*4))){*w=0;res="!memal";goto err;}
+	if(sceJpegDecodeMJpeg(f,size,res,0)<0){Free(res);*w=0;res="!decMJp";goto err;}
 	sceJpegDeleteMJpeg();
-	sceJpegFinishMJpeg();
-	sceIoClose(fd);
-	return raw;
 err:
+	if(f)Free(f);
+	if(fd)sceIoClose(fd);
 	sceJpegFinishMJpeg();
-	sceIoClose(fd);
-	return 0;
+	return res;
 }
 void*addAlpha(void*buf,int bw,int bh,void*alpha,int aw,int ah){
 	if(!buf)return buf;

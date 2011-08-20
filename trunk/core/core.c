@@ -1,5 +1,4 @@
 #include <pspkernel.h>
-#include <malloc.h>
 #include <stdio.h>
 #include <string.h>
 #include <psputility.h>
@@ -59,7 +58,7 @@ int print(char*str,int lv){//0:fatal,1:error,2:alert,3:debug
 }
 void* my_malloc(unsigned s){//64
 	void* p=malloc(s);
-//	printf("malloc:%p\n",p);
+//	printf("malloc(%i):%p\n",s,p);
 	return p;
 }
 void* my_memalign(unsigned bit,unsigned s){//64
