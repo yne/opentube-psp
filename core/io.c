@@ -106,13 +106,14 @@ int httpOpen(char* url,int mode,int param){
 	if((ret=sceHttpSetSendTimeOut   (tpl,7*1000000))<0){ret=cnx;goto errCnx;}
 	if((ret=sceHttpSetRecvTimeOut   (tpl,7*1000000))<0){ret=cnx;goto errCnx;}
 	if((cnx=sceHttpCreateConnectionWithURL(tpl, url, 1))<0){ret=cnx;goto errCnx;}
-	if((req=sceHttpCreateRequestWithURL(cnx,data?PSP_HTTP_METHOD_POST:PSP_HTTP_METHOD_GET,url,data?strlen(data):0))<0){ret=req;goto errReq;}
-	if((ret=sceHttpSendRequest(req,data,data?strlen(data):0))<0)goto errReq;
+	if((req=sceHttpCreateRequestWithURL(cnx,PSP_HTTP_METHOD_GET,url,0))<0){ret=req;goto errReq;}
+	if((ret=sceHttpSendRequest(req,data,0))<0)goto errReq;
 	if((ret=sceHttpGetStatusCode(req,&status))<0)goto errReq;
 	if(status!=200){Alert("badReqStatus\n");}
 //	Printf("%llu\n",size);
 //	sceHttpAddExtraHeader(req,"Content-Range","bytes 0-5",0);
 	int fd=(req<<16)|(cnx<<8)|(tpl);
+	return fd;
 	if(mode==HTTP_SAVE_FILE){
 		char*fname=url;
 		for(int i=0;url[i];i++)if(url[i]=='/')fname=url+i+1;
@@ -136,7 +137,7 @@ int httpOpen(char* url,int mode,int param){
 		//param=(int)result;
 		return length;
 	}
-	
+	$("done\n");
 	return fd;
 errReq:
 	sceHttpDeleteRequest(req);
@@ -181,7 +182,9 @@ int StreamThread(SceSize args,void*argp){
 	return sceKernelExitDeleteThread(0);
 }
 int myOpen(char*path,int mode,int flag){
-	int ret=(memcmp(path,"http://",7))?sceIoOpen(path,(mode^PSP_O_NOWAIT)|PSP_O_RDONLY,flag):httpOpen((char*)path,mode,flag);
+	int ret=(memcmp(path,"http://",7))?
+		sceIoOpen(path,(mode^PSP_O_NOWAIT)|PSP_O_RDONLY,flag):
+		httpOpen((char*)path,mode,flag);
 	if((mode&PSP_O_NOWAIT)&&(!Str.th)&&(ret>0)){
 		Str.fd=ret;
 		Str.th=ret=sceKernelCreateThread("OpenTube.io.buffer",StreamThread,0x11,0x10000,0,0);
@@ -194,7 +197,7 @@ int myReadX(void*p,int pos,int len){//read from buffer
 	if(!Str.th)return 0;
 	if(Str.size && pos>Str.size)return 0;
 	while(!(Str.size && Str.size==Str.end) && pos+len>Str.end){
-		Alert(".");
+		$(".");
 //		printf("\nno enought data : (%i-%i>%i)\n",Str.curr,len,Str.end);
 		sceKernelDelayThread(1000*50);
 	}
