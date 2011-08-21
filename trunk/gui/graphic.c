@@ -48,12 +48,6 @@ char* argcat(char* dst,char* src){
 	memcpy(dst,src,n);
 	return dst+n;
 }
-void blitWall(){
-	sceGuTexImage(0,bg.tbw,bg.h,bg.tbw,bg.p);
-	sceGuTexSync();
-	if(bg.tbw<32)sceGuClear(GU_COLOR_BUFFER_BIT);
-	else sceGuCopyImage(GU_PSM_8888,32,0,480,272,512,bg.p,0,0,ot->lcd->size,getVramDrawBuffer());
-}
 /*
 void drawVideoShadow(Vertex*v,int w,int h){
 	int x=(480-w)/2-8,y=(272-h)/2-8;
@@ -84,7 +78,8 @@ void fallBackTex(){
 	bg=tmp;
 	for(int y=0;y<32;y++)
 		for(int x=0;x<32;x++)
-			((int*)bg.p)[x+32*y]=(!x||x==31||!y||y==31||x==y||x==31-y)?0xFF0000FF:0x0;
+			((int*)bg.p)[x+32*y]=0x80000000;
+//			((int*)bg.p)[x+32*y]=(!x||x==31||!y||y==31||x==y||x==31-y)?0xFF0000FF:0x0;
 }
 char*init(){
 	ot->lcd->curr=0;
@@ -202,7 +197,7 @@ void setScrollBar(){
 		if(scr.pos<-15)scr.pos=-15;
 	}
 }
-void strnccpy(char*src,char*dst,char c,int n){
+void strnccpy(char*dst,char*src,char c,int n){
 	for(int i=0;i<n;i++){
 		if(src[i]==c){
 			dst[i]=0;
@@ -245,55 +240,71 @@ void updir(char*dir){
 	for(;i;i--)
 		if(dir[i]=='/')return (void)(dir[i+1]=0);
 }
+void runJs(char*path){
+	char arg[256]={0};
+	strcpy(arg,CWD);//libjs folder
+	strnccpy(path,dir,'?',255);
+	char*_arg=argcat(argcat(argcat(arg,strcat(arg,"libjs")),path),"1024");
+	int ret,mod=sceKernelLoadModule(arg,0,0);
+	sceKernelStartModule(mod,_arg-arg,&arg,&ret,NULL);
+}
 void select(){
 	char*curr=lst.p[lst.curr];
-	if(pan.visible)return;
-	if(lst.visible){
-		if(dir[3]!=':'&&dir[5]!=':'){//we are in a script browser
-			Alert("still to do\n");
+//	$(">");Alert(dir);$(">>");Alert(curr);$("\n");
+	if(!lst.visible)return;
+	if(strstr(dir,".js")){//we are in a script
+			char tmp[256];
+			strnccpy(tmp,dir,'?',255);//param free adress
+			strnccpy(dir,dir,'?',255);//dir-=param
+			strcat(dir,"?");//add curr param to dir
+			strcat(dir,curr);
+			runJs(tmp);
 			return;
-		}
-		//we are in file browser
-		if(curr[strlen(curr)-1]=='/'){//is a dir
-			if(((int*)curr)[0]==0x002F2E2E)
-				updir(dir);
-			else
-				strcat(dir,curr);
-			cd(dir);
-			ls(dir);
-			lst.curr=0;
+		if(curr[0]=='['){//cmd from script
+			cd(CWD);
+			ls(CWD);
 		}else{
-			int len=strlen(curr);
-			if(curr[len-3]=='.'&&curr[len-2]=='j'&&curr[len-1]=='s'){//script
-				char arg[256]={0};//={'h','o','s','t','0',':','/','l','i','b','j','s',0,'a','.','j','s',0,'1','0','2','4'};
-				strcpy(arg,CWD);
-				char*_arg=argcat(argcat(argcat(arg,strcat(arg,"libjs")),curr),"1024");
-				int ret,mod=sceKernelLoadModule(arg,0,0);
-				if(mod>0)sceKernelStartModule(mod,_arg-arg,&arg,&ret,NULL);
-				else Alert("modLd\n");
-			}else if(curr[len-4]=='.'&&curr[len-3]=='p'&&curr[len-2]=='g'&&curr[len-1]=='f'){//pgf font
-				intraFont*ltn_tmp=intraFontLoad(curr,INTRAFONT_CACHE_ASCII);
-				if(ltn_tmp){
-					intraFontUnload(ltn);
-					ltn=ltn_tmp;
-				}
-			}else	if(curr[len-5]=='_'&&curr[len-4]=='.'&&curr[len-3]=='j'&&curr[len-2]=='p'&&curr[len-1]=='g'){//alpha wall
-				char wall[256];
-				strcpy(wall,curr);//replace(/_\.jpg$/,".jpg") ... so easy
-				wall[len-5]='.';wall[len-4]='j';wall[len-3]='p';wall[len-2]='g';wall[len-1]=0;
-				char*tmp=jpgOpen(wall,curr,&bg.tbw,&bg.h);
-				if(bg.tbw){
-					free(bg.p);
-					bg.p=tmp;
-				}else{
-					Alert(tmp);
-				}
-			}else{
-				clean();
-				char*err=Play(curr);
-				restor();
-				Alert(err?err:"fine");
+			//add argument to dir
+			//startjs
+		}
+	}
+	//we are in file browser
+	if(curr[strlen(curr)-1]=='/'){//is a dir
+		if(((int*)curr)[0]==0x002F2E2E)
+			updir(dir);
+		else
+			strcat(dir,curr);
+		cd(dir);
+		ls(dir);
+		lst.curr=0;
+	}else{
+		int len=strlen(curr);
+		if(curr[len-3]=='.'&&curr[len-2]=='j'&&curr[len-1]=='s'){//script
+			strcat(dir,curr);
+			strcat(dir,"?boot");
+			runJs(dir);
+		}else if(curr[len-4]=='.'&&curr[len-3]=='p'&&curr[len-2]=='g'&&curr[len-1]=='f'){//pgf font
+			intraFont*ltn_tmp=intraFontLoad(curr,INTRAFONT_CACHE_ASCII);
+			if(ltn_tmp){
+				intraFontUnload(ltn);
+				ltn=ltn_tmp;
 			}
+		}else	if(curr[len-5]=='_'&&curr[len-4]=='.'&&curr[len-3]=='j'&&curr[len-2]=='p'&&curr[len-1]=='g'){//alpha wall
+			char wall[256];
+			strcpy(wall,curr);//replace(/_\.jpg$/,".jpg") ... so easy
+			wall[len-5]='.';wall[len-4]='j';wall[len-3]='p';wall[len-2]='g';wall[len-1]=0;
+			char*tmp=jpgOpen(wall,curr,&bg.tbw,&bg.h);
+			if(bg.tbw){
+				free(bg.p);
+				bg.p=tmp;
+			}else{
+				Alert(tmp);
+			}
+		}else{
+			clean();
+			char*err=Play(curr);
+			restor();
+			Alert(err?err:"fine");
 		}
 	}
 }
@@ -319,7 +330,8 @@ int  down(){
 }
 void left(){
 //	clean();
-//	Play("http://192.168.0.100/480p.mp4");
+//	Open("http://gdata.youtube.com/feeds/api/videos?q=djmax&start-index=1&max-results=20&v=1",PSP_O_RDONLY,0777);
+	Play("http://192.168.0.100/480p.mp4");
 //	restor();
 }
 void right(){
@@ -353,59 +365,77 @@ char*edit(int what,void*arg){
 		}
 	}else if(what==-1){//get curr list elem
 	}else if(what==-2){//get curr dir
+		return dir;
 	}else if(what==-3){//get curr menu
 	}
 	return NULL;
+}
+void drawBuffer(Vertex*v){
+	if(Str.th){
+		int total=1+(Str.size?Str.size:Str.end)/480;
+		queueSprite( 8,32, 8, 8,Str.start/total,264,(Str.end-Str.start)/total, 8,v);//buffered zone
+		queueSprite( 0,32, 8, 8,0,264,480, 8,v);//buffer bar
+		queueSprite(16,32, 8, 8,(Str.curr/total)-4,264,8, 8,v);//current position
+	}
 }
 char*draw(int mode){
 	if(!ready)init();
 	if(mode&1){//wall
 		sceGuStartList(GU_DIRECT);
-		blitWall();
+		sceGuTexImage(0,bg.tbw,bg.h,bg.tbw,bg.p);
+		sceGuTexSync();
+		if(bg.tbw<512)
+			sceGuClear(GU_COLOR_BUFFER_BIT);
+		else
+			sceGuCopyImage(GU_PSM_8888,32,0,480,272,512,bg.p,0,0,ot->lcd->size,getVramDrawBuffer());
 		sceGuFinish();
 		sceGuSync(GU_SYNC_FINISH,GU_SYNC_WHAT_DONE);
 	}
 	if(mode&2){//interface
-		setCur();
-		setSta();
-		setList();
-		setPanel();
-		setTopBar();
-		setScrollBar();
 		sceGuStartList(GU_DIRECT);
-		intraFontSetStyle(ltn,1.0f,lst.color|(lst.pos<<24),lst.shadow|(lst.pos<<24),0);
-		for(int i=0,y=lst.y;(i<lst.len)&&(y<480);i++,y+=12)intraFontPrint(ltn,lst.x,y,lst.p[i]);//result/file list
-		
-		sceGuTexImage(0,bg.tbw,bg.h,bg.tbw,bg.p);
-		sceGuTexMode(GU_PSM_8888,0,0,0);
-		sceGuTexSync();
-		Vertex *v=sceGuGetMemory(2*16*sizeof(Vertex));n=0;//shadow
-		queueSprite( 0, 0, 1, 1,  0, 0,480,top.pos-13,v);//top
-		queueSprite( 0, 0, 1, 1,  0, top.pos-13,scr.pos,272+13-top.pos-sta.pos,v);// left
-		queueSprite( 0, 0, 1, 1,495-pan.pos, top.pos-13,pan.pos,272+13-top.pos-sta.pos,v);// right
-		queueSprite( 0, 0, 1, 1,  0,272-sta.pos,480,sta.pos,v);// bottom
-		queueSprite( 0, 0,15,13,  0+scr.pos,-13+top.pos,15,13,v);// top left
-		queueSprite(15, 0, 2,13, 15+scr.pos,-13+top.pos,465-pan.pos-scr.pos,13,v);//title bar bg
-		queueSprite(17, 0,15,13,480-pan.pos,-13+top.pos,15,13,v);// top right
-		queueSprite( 0,14,15, 2,  0+scr.pos,  0+top.pos,15,242+13-top.pos-sta.pos,v);//scroll bg
-		queueSprite(17,14,15, 2,480-pan.pos,  0+top.pos,15,242+13-top.pos-sta.pos,v);//menu bg
-		queueSprite( 0,15,15,17,  0+scr.pos,255-sta.pos,15,17,v);// bottom left
-		queueSprite(15,15, 2,17, 15+scr.pos,255-sta.pos,465-pan.pos-scr.pos,17,v);//??? bg
-		queueSprite(17,15,15,17,480-pan.pos,255-sta.pos,15,17,v);// bottom right
-		if(cur.visible==1)queueSprite( 0,80,16,16,cur._x,cur._y,16,16,v);//cursor
-		if(Str.th){
-			int total=1+(Str.size?Str.size:Str.end)/480;
-			queueSprite( 8,32, 8, 8,Str.start/total,264,(Str.end-Str.start)/total, 8,v);//buffered zone
-			queueSprite( 0,32, 8, 8,0,264,480, 8,v);//buffer bar
-			queueSprite(16,32, 8, 8,(Str.curr/total)-4,264,8, 8,v);//current position
-		}
-		sceGuDrawArray(GU_SPRITES,GU_TEXTURE_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_2D,n,0,v);
+		if(ot->dmx){//just draw the buffer bar while on playback
+			sceGuTexImage(0,bg.tbw,bg.h,bg.tbw,bg.p);
+			sceGuTexMode(GU_PSM_8888,0,0,0);
+			Vertex*v=sceGuGetMemory(2*3*sizeof(Vertex));n=0;//shadow
+			drawBuffer(v);
+			sceGuTexSync();
+			sceGuDrawArray(GU_SPRITES,GU_TEXTURE_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_2D,n,0,v);
+		}else{
+			setCur();
+			setSta();
+			setList();
+			setPanel();
+			setTopBar();
+			setScrollBar();
+			intraFontSetStyle(ltn,1.0f,lst.color|(lst.pos<<24),lst.shadow|(lst.pos<<24),0);
+				for(int i=0,y=lst.y;(i<lst.len)&&(y<480);i++,y+=12)
+					intraFontPrint(ltn,lst.x,y,lst.p[i]);//result/file list
+			sceGuTexImage(0,bg.tbw,bg.h,bg.tbw,bg.p);
+			sceGuTexMode(GU_PSM_8888,0,0,0);
+			sceGuTexSync();
+			Vertex*v=sceGuGetMemory(2*16*sizeof(Vertex));n=0;//shadow
+			queueSprite( 0, 0, 1, 1,  0, 0,480,top.pos-13,v);//top
+			queueSprite( 0, 0, 1, 1,  0, top.pos-13,scr.pos,272+13-top.pos-sta.pos,v);// left
+			queueSprite( 0, 0, 1, 1,495-pan.pos, top.pos-13,pan.pos,272+13-top.pos-sta.pos,v);// right
+			queueSprite( 0, 0, 1, 1,  0,272-sta.pos,480,sta.pos,v);// bottom
+			queueSprite( 0, 0,15,13,  0+scr.pos,-13+top.pos,15,13,v);// top left
+			queueSprite(15, 0, 2,13, 15+scr.pos,-13+top.pos,465-pan.pos-scr.pos,13,v);//title bar bg
+			queueSprite(17, 0,15,13,480-pan.pos,-13+top.pos,15,13,v);// top right
+			queueSprite( 0,14,15, 2,  0+scr.pos,  0+top.pos,15,242+13-top.pos-sta.pos,v);//scroll bg
+			queueSprite(17,14,15, 2,480-pan.pos,  0+top.pos,15,242+13-top.pos-sta.pos,v);//menu bg
+			queueSprite( 0,15,15,17,  0+scr.pos,255-sta.pos,15,17,v);// bottom left
+			queueSprite(15,15, 2,17, 15+scr.pos,255-sta.pos,465-pan.pos-scr.pos,17,v);//??? bg
+			queueSprite(17,15,15,17,480-pan.pos,255-sta.pos,15,17,v);// bottom right
+			if(cur.visible==1)queueSprite( 0,80,16,16,cur._x,cur._y,16,16,v);//cursor
+			drawBuffer(v);
+			sceGuDrawArray(GU_SPRITES,GU_TEXTURE_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_2D,n,0,v);
 
-		intraFontSetStyle(ltn,1.0f,0xFFFFFFFF,0x00000000,0);
-		intraFontPrint(ltn,15,top.pos-16,top.title);//title
-		if(pan.visible)
-			for(int i=0,y=(272-pan.len*20)/2;i<pan.len;i++,y+=20)
-				intraFontPrint(ltn,500-pan.pos,y,pan.p[i]);//result/file list
+			intraFontSetStyle(ltn,1.0f,0xFFFFFFFF,0x00000000,0);
+			intraFontPrint(ltn,15,top.pos-16,top.title);//title
+			if(pan.visible)
+				for(int i=0,y=(272-pan.len*20)/2;i<pan.len;i++,y+=20)
+					intraFontPrint(ltn,500-pan.pos,y,pan.p[i]);//result/file list
+		}
 		sceGuFinish();
 		sceGuSync(GU_SYNC_FINISH,GU_SYNC_WHAT_DONE);
 	}
