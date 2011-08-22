@@ -20,7 +20,7 @@
 #include "core.h"
 #define SIZE 0x10000//64ko segment
 #define NUM 0x20 //20 segment = 1Mo cache
-char*UserAgent="OpenTube/2.0 (PSP-0000 0.00)";
+char*UserAgent="Mozilla/5.0 (Windows NT 5.1; rv:6.0) Gecko/20100101 Firefox/6.0";//"OpenTube/2.0 (PSP-0000 0.00)";
 int err=0,netInited=0;
 //extern int sceKernelGetModel();
 int netStop(int lv){
@@ -75,12 +75,12 @@ int netInit(){
 	sceUtilityLoadNetModule(PSP_NET_MODULE_PARSEHTTP);
 	sceUtilityLoadNetModule(PSP_NET_MODULE_HTTP);
 	if((err=sceHttpInit(0x25800))<0)return netStop(3);
-	int model=0,fw=sceKernelDevkitVersion();
+//	int model=0,fw=sceKernelDevkitVersion();
 //	Sudo(4,(int)&model,0);
-	UserAgent[18]=model+'1';
-	UserAgent[23]=((fw&0x0F000000)>>24)+'0';
-	UserAgent[25]=((fw&0x000F0000)>>16)+'0';
-	UserAgent[26]=((fw&0x00000F00)>> 8)+'0';
+//	UserAgent[18]=model+'1';
+//	UserAgent[23]=((fw&0x0F000000)>>24)+'0';
+//	UserAgent[25]=((fw&0x000F0000)>>16)+'0';
+//	UserAgent[26]=((fw&0x00000F00)>> 8)+'0';
 	netInited=1;
 	return 0;
 }
@@ -109,11 +109,15 @@ int httpOpen(char* url,int mode,int param){
 	if((req=sceHttpCreateRequestWithURL(cnx,PSP_HTTP_METHOD_GET,url,0))<0){ret=req;goto errReq;}
 	if((ret=sceHttpSendRequest(req,data,0))<0)goto errReq;
 	if((ret=sceHttpGetStatusCode(req,&status))<0)goto errReq;
-	if(status!=200){Alert("badReqStatus\n");}
+	int fd=(req<<16)|(cnx<<8)|(tpl);
+//	printf("status:%i\n",status);
+	if(status>=500&&status<600){Alert("5XX Server Error\n");Close(fd);}
+	if(status>=400&&status<500){Alert("4XX Client Error\n");Close(fd);}
+	if(status>=300&&status<400){Alert("3XX Redirecting.\n");}
+	if(status>=200&&status<300){Alert("2XX Successfully\n");}
+	if(status>=100&&status<200){Alert("1XX Informations\n");}
 //	Printf("%llu\n",size);
 //	sceHttpAddExtraHeader(req,"Content-Range","bytes 0-5",0);
-	int fd=(req<<16)|(cnx<<8)|(tpl);
-	return fd;
 	if(mode==HTTP_SAVE_FILE){
 		char*fname=url;
 		for(int i=0;url[i];i++)if(url[i]=='/')fname=url+i+1;
@@ -125,6 +129,7 @@ int httpOpen(char* url,int mode,int param){
 		httpClose(fd);
 		return 0;
 	}
+	return fd;
 	if(mode==HTTP_SAVE_RAM){
 		int length=0;
 		void*result=Malloc(1024);
@@ -182,6 +187,19 @@ int StreamThread(SceSize args,void*argp){
 	return sceKernelExitDeleteThread(0);
 }
 int myOpen(char*path,int mode,int flag){
+	if(strstr(path,".URL")){//not the file itself
+		int fd=sceIoOpen(path,PSP_O_RDONLY,0777);
+		if(fd<0)return fd;
+		char f[256];f[255]=0;
+		sceIoRead(fd,f,255);
+		sceIoClose(fd);
+		char*url=strstr(f,"URL=");
+		if(!url)return -1;//not realy a .URL file
+		int len=strcspn(url,"\r\n");
+		url[len]=0;
+		Alert(url+4);
+		return Open(url+4,mode,flag);
+	}
 	int ret=(memcmp(path,"http://",7))?
 		sceIoOpen(path,(mode^PSP_O_NOWAIT)|PSP_O_RDONLY,flag):
 		httpOpen((char*)path,mode,flag);
