@@ -34,10 +34,11 @@ Display _lcd;//backup for after-playback restor
 
 void* swapBuffer(){
 	while((sceKernelGetSystemTimeWide())<next)
-		sceDisplayWaitVblankStart();
+		Draw(4);
 	next+=delay;
-	ot->gui->draw(2|8);
+	Draw(8);
 	return (void*)(ot->lcd->curr?ot->lcd->disp:ot->lcd->draw);//+lcd.vram
+/*
 	if(ot->lcd->curr^=1){
 		sceDisplaySetFrameBuf((void*)ot->lcd->draw,ot->lcd->size,ot->lcd->type,0);
 		sceDisplaySetFrameBuf((void*)ot->lcd->disp,ot->lcd->size,ot->lcd->type,1);
@@ -47,6 +48,7 @@ void* swapBuffer(){
 	sceDisplaySetFrameBuf((void*)ot->lcd->draw,ot->lcd->size,ot->lcd->type,1);
 	return (void*)ot->lcd->draw+ot->lcd->vram;
 //	return (void*)0x44000000;
+*/
 }
 char* load(){
 	Alert("vload\n");
@@ -82,6 +84,7 @@ char* play(){
 			Mp4AvcYuvStruct*yuv=ot->me->d->yuv+i;
 			Mp4AvcCscStruct csc={(ot->me->d->info->height+15)>>4,(ot->me->d->info->width+15)>>4,0,0,yuv->b0,yuv->b1,yuv->b2,yuv->b3,yuv->b4,yuv->b5,yuv->b6,yuv->b7};
 			sceMpegBaseCscAvc(swapBuffer(),0,ot->lcd->size, &csc);
+			Draw(2);
 		}
 	}
 	return NULL;

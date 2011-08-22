@@ -43,42 +43,17 @@ int  fileExist(char*path){
 	sceIoClose(ret);
 	return ret>0;
 }
-char* argcat(char* dst,char* src){
+char*argcat(char* dst,char* src){
 	int n = strlen(src)+1;
 	memcpy(dst,src,n);
 	return dst+n;
 }
-/*
-void drawVideoShadow(Vertex*v,int w,int h){
-	int x=(480-w)/2-8,y=(272-h)/2-8;
-	v[0].u=112;v[1].u=120;v[0].v=0;v[1].v=8;
-	v[0].x=x;v[1].x=x+8;v[0].y=y;v[1].y=y+8;
-	v[2].u=120;v[3].u=136;v[2].v=0;v[3].v=8;
-	v[2].x=x+8;v[3].x=x+8+w;v[2].y=y;v[3].y=y+8;
-	v[4].u=136;v[5].u=144;v[4].v=0;v[5].v=8;
-	v[4].x=x+8+w;v[5].x=x+8+w+8;v[4].y=y;v[5].y=y+8;
-
-	v[6].u=112;v[7].u=120;v[6].v=8;v[7].v=24;
-	v[6].x=x;v[7].x=x+8;v[6].y=y+8;v[7].y=y+8+h;
-//	v[8].u=120;v[9].u=136;v[8].v=8;v[9].v=24;
-//	v[8].x=x+8;v[9].x=x+8+w;v[8].y=y;v[9].y=y+8+h;
-	v[10].u=136;v[11].u=144;v[10].v=8;v[11].v=24;
-	v[10].x=x+8+w;v[11].x=x+8+w+8;v[10].y=y+8;v[11].y=y+8+h;	
-
-	v[12].u=112;v[13].u=120;v[12].v=24;v[13].v=32;
-	v[12].x=x;v[13].x=x+8;v[12].y=y+8+h;v[13].y=y+8+h+8;
-	v[14].u=120;v[15].u=136;v[14].v=24;v[15].v=32;
-	v[14].x=x+8;v[15].x=x+8+w;v[14].y=y+8+h;v[15].y=y+8+h+8;
-	v[16].u=136;v[17].u=144;v[16].v=24;v[17].v=32;
-	v[16].x=x+8+w;v[17].x=x+8+w+8;v[16].y=y+8+h;v[17].y=y+8+h+8;	
-}
-*/
 void fallBackTex(){
-	Wall tmp={32,32,Memalign(64,32*32*4)};
+	Wall tmp={32,32,Memalign(64,32*32*4)};//mem leak
 	bg=tmp;
 	for(int y=0;y<32;y++)
 		for(int x=0;x<32;x++)
-			((int*)bg.p)[x+32*y]=0x80000000;
+			((int*)bg.p)[x+32*y]=0x80FFFFFF;
 //			((int*)bg.p)[x+32*y]=(!x||x==31||!y||y==31||x==y||x==31-y)?0xFF0000FF:0x0;
 }
 char*init(){
@@ -88,9 +63,9 @@ char*init(){
 	sceGuDrawBuffer(GU_PSM_8888,(void*)(ot->lcd->draw^0x44000000),ot->lcd->size);
 	sceGuDispBuffer(SCR_WIDTH,SCR_HEIGHT,(void*)(ot->lcd->disp^0x44000000),ot->lcd->size);
 
-	sceGuScissor( 0,0,SCR_WIDTH,SCR_HEIGHT);
-	sceGuEnable( GU_SCISSOR_TEST );
-	sceGuClearColor(0x30303030);
+	sceGuScissor(0,0,SCR_WIDTH,SCR_HEIGHT);
+	sceGuEnable(GU_SCISSOR_TEST);
+	sceGuClearColor(0xFF000000);
 	sceGuColor(0xFFFFFFFF);
 	
 	sceGuTexMode(GU_PSM_8888,0,1,0);
@@ -112,7 +87,7 @@ char*init(){
 	intraFontInit();
 	ltn=intraFontLoad("flash0:/font/ltn8.pgf",INTRAFONT_CACHE_ASCII);
 	bg.p=jpgOpen("res/wall.jpg","res/wall_.jpg",&bg.tbw,&bg.h);
-	if(!bg.tbw){Alert(bg.p);bg.p=NULL;fallBackTex();}
+	if(!bg.tbw){bg.p=NULL;fallBackTex();}
 	lst.color=0xFFFFFF;
 	lst.shadow=0x000000;
 	ready=1;
@@ -225,7 +200,8 @@ void cd(char* dir){
 void ls(char* dir){
 	while(lst.len)Free(lst.p[lst.len--]);
 	int fd=sceIoDopen(dir);
-	for(SceIoDirent ent; (fd>0)&& (sceIoDread(fd,&ent)>0);){
+	if(fd<0){$("failed to open dir\n");return;}
+	for(SceIoDirent ent;sceIoDread(fd,memset(&ent,0,sizeof(ent)))>0;){
 		if(ent.d_name[0]=='.'&&ent.d_name[1]==0)continue;
 		if(ent.d_stat.st_mode&0x1000)strcat(ent.d_name,"/");
 		lst.p=Realloc(lst.p,(++lst.len)*sizeof(char*));
@@ -250,23 +226,16 @@ void runJs(char*path){
 }
 void select(){
 	char*curr=lst.p[lst.curr];
-//	$(">");Alert(dir);$(">>");Alert(curr);$("\n");
+	$(">");Alert(dir);$(">>");Alert(curr);$("\n");
 	if(!lst.visible)return;
-	if(strstr(dir,".js")){//we are in a script
-			char tmp[256];
-			strnccpy(tmp,dir,'?',255);//param free adress
-			strnccpy(dir,dir,'?',255);//dir-=param
-			strcat(dir,"?");//add curr param to dir
-			strcat(dir,curr);
-			runJs(tmp);
-			return;
-		if(curr[0]=='['){//cmd from script
-			cd(CWD);
-			ls(CWD);
-		}else{
-			//add argument to dir
-			//startjs
-		}
+	if(strstr(dir ,".js")||strstr(dir ,".js")){//file is a script
+		char tmp[256];
+		strnccpy(tmp,dir,'?',255);//param free adress
+		strnccpy(dir,dir,'?',255);//dir-=param
+		strcat(dir,"?");//add curr param to dir
+		strcat(dir,curr);
+		runJs(tmp);
+		return;
 	}
 	//we are in file browser
 	if(curr[strlen(curr)-1]=='/'){//is a dir
@@ -279,7 +248,7 @@ void select(){
 		lst.curr=0;
 	}else{
 		int len=strlen(curr);
-		if(curr[len-3]=='.'&&curr[len-2]=='j'&&curr[len-1]=='s'){//script
+		if(strstr(curr ,".js")||strstr(curr ,".JS")){//script
 			strcat(dir,curr);
 			strcat(dir,"?boot");
 			runJs(dir);
@@ -331,7 +300,7 @@ int  down(){
 void left(){
 //	clean();
 //	Open("http://gdata.youtube.com/feeds/api/videos?q=djmax&start-index=1&max-results=20&v=1",PSP_O_RDONLY,0777);
-	Play("http://192.168.0.100/480p.mp4");
+//	Play("http://192.168.0.100/480p.mp4");
 //	restor();
 }
 void right(){
@@ -464,6 +433,11 @@ int  loop(SceSize args,void*argp){
 		if(ot->sys->pad !=ot->sys->_pad){
 //			if(ot->sys->pad & PSP_CTRL_START)break;
 			if(ot->sys->pad & PSP_CTRL_CROSS)select();
+			if(ot->sys->pad & PSP_CTRL_CIRCLE){
+				updir(dir);
+				strcpy(top.title,dir);
+				ls(dir);
+			}
 			if(ot->sys->pad & PSP_CTRL_TRIANGLE){
 				pan.visible=!pan.visible;
 				if(!pan.p)pan.visible=0;

@@ -19,6 +19,20 @@ int Strlen(char*str){
 }
 int modload(char* path){
 //	if(((u32*)path)[0]==0x70747468 && (((u32*)path)[1]&0xFFFFFF)==0x632F2F3A)
+	char f[256];f[255]=0;
+	if(strstr(path,".URL")){//not the file itself
+		int fd=sceIoOpen(path,PSP_O_RDONLY,0777);
+		if(fd<0)return fd;
+		sceIoRead(fd,f,255);
+		sceIoClose(fd);
+		char*url=strstr(f,"URL=");
+		if(!url)return -1;//not realy a .URL file
+		int len=strcspn(url,"\r\n");
+		url[len]=0;
+		Alert(url+4);
+		path=url+4;
+//		return Open(url+4,mode,flag);
+	}
 	int is_local=strncmp("http://",path,7);
 	if(!is_local){
 		if((is_local=Open(path,HTTP_SAVE_FILE,0777)))return is_local;
@@ -147,7 +161,7 @@ int start(SceSize args,void*argp){
 	ioInit();//	modload("io.prx");
 	int locGui=sceIoOpen("gui.prx",PSP_O_RDONLY,0777);
 	sceIoClose(locGui);
-	modload(locGui>0?"gui.prx":"http://"TEST_SERVER"/gui.prx");
+	modload(locGui?"gui.prx":"gui.prx.URL");
 	sceKernelExitDeleteThread(0);
 	return 0;
 }
