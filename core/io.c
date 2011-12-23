@@ -21,69 +21,7 @@
 #define SIZE 0x10000//64ko segment
 #define NUM 0x20 //20 segment = 1Mo cache
 char*UserAgent="Mozilla/5.0 (Windows NT 5.1; rv:6.0) Gecko/20100101 Firefox/6.0";//"OpenTube/2.0 (PSP-0000 0.00)";
-int err=0,netInited=0;
-//extern int sceKernelGetModel();
-int netStop(int lv){
-//Printf("stopLv:%i\n",lv);
-	if(lv==-1)lv=3;
-	if(lv>=3){//Print("stopHTTP\n");
-		sceHttpEnd();
-		sceUtilityUnloadNetModule(PSP_NET_MODULE_HTTP);
-		sceUtilityUnloadNetModule(PSP_NET_MODULE_PARSEHTTP);
-		sceUtilityUnloadNetModule(PSP_NET_MODULE_PARSEURI);
-	}if(lv>=2){//Print("stopApctl\n");
-		sceNetApctlTerm();
-		sceNetInetTerm();
-	}if(lv>=1){//Print("stopNet\n");
-		sceNetTerm();
-		sceUtilityUnloadNetModule(PSP_NET_MODULE_INET);
-		sceUtilityUnloadNetModule(PSP_NET_MODULE_COMMON);
-	}
-	netInited=0;
-	return err;
-}
-int netInit(){
-	sceUtilityLoadNetModule(PSP_NET_MODULE_COMMON);
-	if((err=sceNetInit(0x20000, 42,0x1000, 42,0x1000))<0)return netStop(1);
-	sceUtilityLoadNetModule(PSP_NET_MODULE_INET);
-	if((err=sceNetInetInit())<0)return netStop(2);
-	//if((err=sceNetResolverInit())<0)goto endApctl;
-	if((err=sceNetApctlInit(0x8000, 0x30))<0)return netStop(2);
-	pspUtilityNetconfData data={{sizeof(pspUtilityNetconfData),-1,1,17,19,18,16,0},PSP_NETCONF_ACTION_CONNECTAP+3,NULL,0,0,0};//3
-	if((err=sceUtilityNetconfInitStart(&data))<0)netStop(2);
-	if(!ot->gui)guInit();
-	for(int done=0;!done;){
-		if(!ot->gui)guDraw();else Draw(1|2);
-		switch(sceUtilityNetconfGetStatus()){
-			case PSP_UTILITY_DIALOG_NONE:break;
-			case PSP_UTILITY_DIALOG_VISIBLE:sceUtilityNetconfUpdate(1);break;
-			case PSP_UTILITY_DIALOG_QUIT:sceUtilityNetconfShutdownStart();break;
-			case PSP_UTILITY_DIALOG_FINISHED:done=1;break;
-			default:break;
-		}
-		if(!ot->gui){
-			sceDisplayWaitVblankStart();
-			sceGuSwapBuffers();
-		}else Draw(4|8);
-	}
-	if(!ot->gui)guTerm();
-	if(data.base.result){
-		Alert("still not connected");
-		return netStop(2);
-	}
-	sceUtilityLoadNetModule(PSP_NET_MODULE_PARSEURI);
-	sceUtilityLoadNetModule(PSP_NET_MODULE_PARSEHTTP);
-	sceUtilityLoadNetModule(PSP_NET_MODULE_HTTP);
-	if((err=sceHttpInit(0x25800))<0)return netStop(3);
-//	int model=0,fw=sceKernelDevkitVersion();
-//	Sudo(4,(int)&model,0);
-//	UserAgent[18]=model+'1';
-//	UserAgent[23]=((fw&0x0F000000)>>24)+'0';
-//	UserAgent[25]=((fw&0x000F0000)>>16)+'0';
-//	UserAgent[26]=((fw&0x00000F00)>> 8)+'0';
-	netInited=1;
-	return 0;
-}
+int err=0,netInited=1;
 int httpClose(int fd){
 	if(fd<0x010101)return fd;
 	sceHttpDeleteRequest(FD2REQ(fd));
@@ -98,9 +36,14 @@ int httpRead(int fd,void*buf,int len){
 }
 int httpOpen(char* url,int mode,int param){
 	char*data=NULL;//(mode>0x8800000)?NULL:(char*)mode;
-	if(!netInited)netInit();
 	int tpl=0,cnx=0,req=0,ret=0,status=0;
-	if((tpl=sceHttpCreateTemplate(UserAgent, 1, 1))<0){ret=tpl;goto errTpl;}
+	if((tpl=sceHttpCreateTemplate(UserAgent, 1, 0))<0){ret=tpl;goto errTpl;}
+//to look exactly like FF6
+//	sceHttpAddExtraHeader(tpl,"accept-charset","ISO-8859-1,utf-8;q=0.7,*;q=0.7",0);
+//	sceHttpAddExtraHeader(tpl,"accept-encoding","gzip, deflate",0);
+//	sceHttpAddExtraHeader(tpl,"accept-language","en-us,en;q=0.5",0);
+//	sceHttpAddExtraHeader(tpl,"accept","text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",0);
+	if((ret=sceHttpEnableKeepAlive(tpl))<0){ret=cnx;goto errCnx;}
 	if((ret=sceHttpSetResolveRetry(tpl,2))<0){ret=cnx;goto errCnx;}
 	if((ret=sceHttpSetResolveTimeOut(tpl,7*1000000))<0){ret=cnx;goto errCnx;}
 	if((ret=sceHttpSetSendTimeOut   (tpl,7*1000000))<0){ret=cnx;goto errCnx;}
@@ -118,7 +61,7 @@ int httpOpen(char* url,int mode,int param){
 	if(status>=100&&status<200){Alert("1XX Informations\n");}
 //	Printf("%llu\n",size);
 //	sceHttpAddExtraHeader(req,"Content-Range","bytes 0-5",0);
-	if(mode==HTTP_SAVE_FILE){
+	if(mode&HTTP_SAVE_FILE){
 		char*fname=url;
 		for(int i=0;url[i];i++)if(url[i]=='/')fname=url+i+1;
 		int out=sceIoOpen(fname,PSP_O_CREAT|PSP_O_WRONLY,0777);
@@ -129,8 +72,7 @@ int httpOpen(char* url,int mode,int param){
 		httpClose(fd);
 		return 0;
 	}
-	return fd;
-	if(mode==HTTP_SAVE_RAM){
+	if(mode&HTTP_SAVE_RAM){
 		int length=0;
 		void*result=Malloc(1024);
 		while((ret=sceHttpReadData(req,result+length,1024))>0){
@@ -138,11 +80,10 @@ int httpOpen(char* url,int mode,int param){
 			result=Realloc(result,length+1024);
 		}
 		httpClose(fd);
-		*((char**)param)=result;
+//		*((char**)param)=result;
 		//param=(int)result;
-		return length;
+		return (int)result;//length;
 	}
-	$("done\n");
 	return fd;
 errReq:
 	sceHttpDeleteRequest(req);
@@ -165,14 +106,11 @@ int StreamThread(SceSize args,void*argp){
 		if(!sceHttpGetContentLength(FD2REQ(Str.fd),&size))Str.size=size;
 	}
 	for(Str.run=1;Str.run&&Str.buf;){
-		if(Str.end-(Str.curr-3*SIZE)<SIZE*(NUM)){
-			if(Str.end && Str.size==Str.end){
-//			printf("<%08X %08X %08X> full\n",Str.start,Str.curr,Str.end);
-			sceKernelDelayThread(1000*50);continue;}
+		if(Str.end-(Str.curr-(8)*SIZE)<SIZE*(NUM)){
+			if(Str.end && Str.size==Str.end){sceKernelDelayThread(1000*50);continue;}
 			int len=Read(Str.fd,Str.buf+(Str.end%(SIZE*NUM)),SIZE);
 			Str.end+=len;
 			if(len<SIZE){//end of buffer reached
-//				Alert("\nEOB\n");
 				Str.size=Str.end;
 				continue;
 			}
@@ -186,23 +124,10 @@ int StreamThread(SceSize args,void*argp){
 	memset(&Str,0,sizeof(Str));
 	return sceKernelExitDeleteThread(0);
 }
-int myOpen(char*path,int mode,int flag){
-	if(strstr(path,".URL")){//not the file itself
-		int fd=sceIoOpen(path,PSP_O_RDONLY,0777);
-		if(fd<0)return fd;
-		char f[256];f[255]=0;
-		sceIoRead(fd,f,255);
-		sceIoClose(fd);
-		char*url=strstr(f,"URL=");
-		if(!url)return -1;//not realy a .URL file
-		int len=strcspn(url,"\r\n");
-		url[len]=0;
-		Alert(url+4);
-		return Open(url+4,mode,flag);
-	}
+int myOpen(const char*path,int mode,int flag){
 	int ret=(memcmp(path,"http://",7))?
-		sceIoOpen(path,(mode^PSP_O_NOWAIT)|PSP_O_RDONLY,flag):
-		httpOpen((char*)path,mode,flag);
+		sceIoOpen(      path,(mode^PSP_O_NOWAIT)|PSP_O_RDONLY|PSP_O_WRONLY,flag):
+		httpOpen((char*)path,(mode^PSP_O_NOWAIT),flag);
 	if((mode&PSP_O_NOWAIT)&&(!Str.th)&&(ret>0)){
 		Str.fd=ret;
 		Str.th=ret=sceKernelCreateThread("OpenTube.io.buffer",StreamThread,0x11,0x10000,0,0);
@@ -211,54 +136,23 @@ int myOpen(char*path,int mode,int flag){
 	}
 	return ret;
 }
-int myReadX(void*p,int pos,int len){//read from buffer
-	if(!Str.th)return 0;
-	if(Str.size && pos>Str.size)return 0;
+int myReadX(void**p,int pos,int len){//read from buffer
+	if(!Str.th||(Str.size&&pos>Str.size))return 0;
 	while(!(Str.size && Str.size==Str.end) && pos+len>Str.end){
-		$(".");
-//		printf("\nno enought data : (%i-%i>%i)\n",Str.curr,len,Str.end);
+		$("buffering\n");
 		sceKernelDelayThread(1000*50);
 	}
-//	printf("READX>%08X %08X = %08X\n",pos,len,((u32*)Str.buf)[pos/4]);
 	int tmp_len=0;
 	if((pos%(SIZE*NUM))+len > SIZE*NUM){//len overpass the ring buffer
-		Alert("1st cp\n");
 		tmp_len = len-((pos+len)%(SIZE*NUM));//size until EOB
-		if(p)memcpy(p,Str.buf+(pos%(SIZE*NUM)),tmp_len);
+		if(*p>0)memcpy(*p,Str.buf+(pos%(SIZE*NUM)),tmp_len);
 	}
-//	printf("memcpy(%i,%i,%i)\n",tmp_len,((pos+tmp_len)%(SIZE*NUM)),len-tmp_len);
-	if(p)memcpy(p+tmp_len,Str.buf+((pos+tmp_len)%(SIZE*NUM)),len-tmp_len);
+	if(*p>0)memcpy(*p+tmp_len,Str.buf+((pos+tmp_len)%(SIZE*NUM)),len-tmp_len);
 	Str.curr=pos+len+tmp_len;
-//	printf("F>%i %i %i %i\n",Str.start,Str.curr,Str.end,Str.size);
 	return len+tmp_len;
 }
 int myRead(int fd,void*p,int len){
-	if(fd==Str.th)return myReadX(p,Str.curr,len);
-	/*{
-		Alert("th read\n");
-		if(Str.curr<Str.start){
-			Alert("!rdBef\n");
-			return 0;
-		}
-		if((Str.size && Str.size==Str.end) && Str.curr+len>Str.end){//buffer filled but asking too much
-			len=Str.end-Str.curr;
-		}
-		while((Str.size && Str.size==Str.end) && Str.curr+len>Str.end){
-			//printf("\nno enought data : (%i-%i>%i)\n",Str.curr,len,Str.end);
-			Alert("!enDat\n");
-			sceKernelDelayThread(1000*50);
-		}
-		int tmp_len=0;//used if len overpass the ring buffer
-		if((Str.curr%(SIZE*NUM))+len > SIZE*NUM){
-			tmp_len = len-((Str.curr+len)%(SIZE*NUM));//size until EOB
-			if(p)memcpy(p,Str.buf+(Str.curr%(SIZE*NUM)),tmp_len);
-			Str.curr+=tmp_len;
-		}
-		if(p)memcpy(p,Str.buf+(Str.curr%(SIZE*NUM)),len-tmp_len);
-		Str.curr+=len-tmp_len;
-		return len;
-	}*/
-//	printf("R %i %08X %08X\n",fd,sceIoLseek32(fd,0,SEEK_CUR),len);
+	if(fd==Str.th)return myReadX(&p,Str.curr,len);
 	if(fd<0x010101)return sceIoRead(fd,p,len);
 	return httpRead(fd,p,len);
 }
@@ -285,7 +179,6 @@ int myClose(int fd){
 }
 int ioUnload(){
 	if(Str.th)myClose(Str.th);
-	netStop(-1);
 	ot->io=NULL;
 	$("IO unload\n");
 	return 0;
@@ -294,5 +187,5 @@ FileSys io={myOpen,mySeek,myRead,myReadX,myWrite,myClose,ioUnload};
 int ioInit(){
 	$("IO loaded\n");
 	ot->io=&io;
-	return 0;
+	return sceIoChdir(CWD);
 }

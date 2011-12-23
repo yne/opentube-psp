@@ -11,7 +11,7 @@ extern char* play();
 extern char* seek();
 extern char* stop();
 
-extern void sceMpegGetAvcNalAu(SceMpeg*,Nal*,SceMpegAu*);
-extern void sceMpegAvcDecodeDetail2(SceMpeg*,SceMpegAvcDetail2**);
-extern int sceMpegBaseCscAvc(void*,unsigned,unsigned,Mp4AvcCscStruct*);
+//extern void sceMpegGetAvcNalAu(SceMpeg*,Nal*,SceMpegAu*);
+//extern void sceMpegAvcDecodeDetail2(SceMpeg*,SceMpegAvcDetail2**);
+//extern int sceMpegBaseCscAvc(void*,unsigned,unsigned,Mp4AvcCscStruct*);
 #endif
