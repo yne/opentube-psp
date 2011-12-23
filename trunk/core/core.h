@@ -1,16 +1,15 @@
 #ifndef MAIN_H
 #define MAIN_H
+#include <pspctrl.h>
 #include <pspmpeg.h>
-#include <audiocodec.h>
 #include <mpegbase.h>
 #include <audiocodec.h>
-#include "gu.h"
 
 #define TEST_SERVER "192.168.0.100"
 #define $(A) sceIoWrite(2,A,sizeof(A))
 
-#define HTTP_SAVE_RAM 0x1//return pointer to the whole file content
-#define HTTP_SAVE_FILE 0x2//return saved file path
+#define HTTP_SAVE_RAM  0x10000//return pointer to the whole file content
+#define HTTP_SAVE_FILE 0x20000//return saved file path
 
 #define Memalign ot->sys->memalign
 #define Realloc ot->sys->realloc
@@ -31,8 +30,9 @@
 #define Fatal(msg) ot->sys->print(msg,0)
 #define Exit ot->sys->stop
 #define Mode ot->sys->mode
+#define _Pad ot->sys->_pad
+#define Pad ot->sys->pad
 #define Print(A) sceIoWrite(2,A,sizeof(A))
-
 #define Open ot->io->open
 #define Seek ot->io->seek
 #define Read ot->io->read
@@ -40,24 +40,20 @@
 #define Write ot->io->write
 #define Close ot->io->close
 #define Str ot->io->str
+#define TH(N,F) sceKernelStartThread(sceKernelCreateThread(N,F,0x20,0x10000,0,0),0,0)
 
 #define Draw ot->gui->draw
 #define Edit ot->gui->edit
 
 typedef struct{//MP4
-	u32 time,nalPreLen;
-	u32 spsLen,ppsLen;
-	u8* sps, * pps;
-	
-	int Ath,Afd,Acodec,ch,hz,bps;
-	u32 AstscLen,*AstscFst,*AstscSpc,*AstscSid;//SampleToChunk
-	u32 AstszLen, AstszCnt,*Astsz;//SampleSize
-	u32 AstcoLen,*Astco;//ChunkOffset
-
-	int Vth,Vfd,Vcodec,fps,delay,profile,width,height;
-	u32 VstscLen,*VstscFst,*VstscSpc,*VstscSid;//SampleToChunk
-	u32 VstszLen, VstszCnt,*Vstsz;//SampleSize
-	u32 VstcoLen,*Vstco;//ChunkOffset
+	u32 scLen,*scFst,*scSpc,*scSid;//SampleToChunk
+	u32 szLen, szCnt,*sz;//SampleSize
+	u32 coLen,*co;//ChunkOffset
+}St;
+typedef struct{//st
+	int Acodec,ch,hz,bps;
+	int Vcodec,profile;
+	St a,v;
 }MP4;
 typedef struct{//vcodec
 	char*(*load)();
@@ -78,13 +74,13 @@ typedef struct{//demuxer
 	char*(*play)();
 	char*(*seek)(int t,int o);
 	char*(*stop)();
-	void*(*getASample)(int s);
-	void*(*getVSample)(int s);
-	int Alen,Ahz;
-	int Vlen,Vfps;	
+	void*(*getASample)(u32 s,u32*len);
+	void*(*getVSample)(u32 s,u32*len);
+	int Alen,hz;
+	int Vlen,fps,width,height,profil;	
 	Acodec* a;
 	Vcodec* v;
-	MP4* f;
+//	MP4* f;
 //	int fd;
 }Demuxer;
 typedef struct{//Graphic
@@ -94,14 +90,14 @@ typedef struct{//Graphic
 	char*(*edit)(int what,void*arg);
 }Graphic;
 typedef struct{//FileSys
-	int(*open)(char* path,int mode,int flag);
+	int(*open)(const char* path,int mode,int flag);
 	int(*seek)(int fd,int type,int len);
 	int(*read)(int fd,void*p,int len);
-	int(*readx)(void*p,int pos,int len);
+	int(*readx)(void**p,int pos,int len);
 	int(*write)(int fd,void*p,int len);
 	int(*close)(int fd);
 	int(*unload)();
-	struct {int fd,th,curr,start,end,run,size;void*buf;}str;
+	struct {int fd,th,curr,start,end,run,size;void*buf,*tmp;}str;
 }FileSys;
 typedef struct{//sudoArg
 	int mode;
@@ -109,26 +105,26 @@ typedef struct{//sudoArg
 	int param;
 }sudoArg;
 typedef struct{//Nal
-	void*sps;
+	char*sps;
 	int  spsLen;
-	void*pps;
+	char*pps;
 	int  ppsLen;
 	int  nalPreLen;
-	void*nal;
-	int  nalLen;
+	char*nal;
+	u32  nalLen;
 	int  mode;
 }Nal;
 typedef struct{//Mp4AvcInfoStruct
-	int unknown0;
-	int unknown1;
+	int unk0;
+	int unk1;
 	int width;
 	int height;
-	int unknown4;
-	int unknown5;
-	int unknown6;
-	int unknown7;
-	int unknown8;
-	int unknown9;
+	int unk4;
+	int unk5;
+	int unk6;
+	int unk7;
+	int pics;
+	int unk9;
 } Mp4AvcInfoStruct;
 typedef struct{//Mp4AvcYuvStruct
 	void* b0;
@@ -139,35 +135,35 @@ typedef struct{//Mp4AvcYuvStruct
 	void* b5;
 	void* b6;
 	void* b7;
-	int unknown0;
-	int unknown1;
-	int unknown2;
+	int unk0;
+	int unk1;
+	int unk2;
 } Mp4AvcYuvStruct;
 typedef struct{//SceMpegAvcDetail2
-	int unknown0;
-	int unknown1;
-	int unknown2;
-	int unknown3;
+	int unk0;
+	int unk1;
+	int unk2;
+	int unk3;
 	Mp4AvcInfoStruct* info;
-	int unknown5;
-	int unknown6;
-	int unknown7;
-	int unknown8;
-	int unknown9;
-	int unknown10;
+	int unk5;
+	int unk6;
+	int unk7;
+	int unk8;
+	int unk9;
+	int unk10;
 	Mp4AvcYuvStruct* yuv;
-	int unknown12;
-	int unknown13;
-	int unknown14;
-	int unknown15;
-	int unknown16;
-	int unknown17;
-	int unknown18;
-	int unknown19;
-	int unknown20;
-	int unknown21;
-	int unknown22;
-	int unknown23;
+	int unk12;
+	int unk13;
+	int unk14;
+	int pics;
+	int unk16;
+	int unk17;
+	int unk18;
+	int unk19;
+	int unk20;
+	int unk21;
+	int unk22;
+	int unk23;
 } SceMpegAvcDetail2;
 typedef struct{//Mp4AvcCscStruct
 	int height;
@@ -225,10 +221,12 @@ typedef struct{//MeCtx
 	u32   bootNid;
 	u32   freqNid;
 	SceMpeg mpeg;
-	SceMpegAu* mpegAu;
+	void* mpegAu;
+	//SceMpegAu mpegAu;
 	SceMpegAvcDetail2*d;
 	SceMpegRingbuffer ring;
 	AuCodec aucd;
+	Nal nal;
 }MeCtx;
 typedef struct{//OpenTube
 	CoreSys*sys;
@@ -240,4 +238,5 @@ typedef struct{//OpenTube
 }OpenTube;
 OpenTube*otGetCtx();
 OpenTube*ot;
+extern int __psp_free_heap(void);
 #endif

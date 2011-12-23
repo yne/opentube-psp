@@ -14,68 +14,68 @@ extern "C" {
 #endif
 
 /** points to "LIBMPEG" */
-typedef ScePVoid SceMpeg;
+typedef void* SceMpeg;
 
 /** some structure */
 typedef SceVoid  SceMpegStream;
 
 /** Ringbuffer callback */
-typedef SceInt32 (*sceMpegRingbufferCB)(ScePVoid pData, SceInt32 iNumPackets, ScePVoid pParam);
+typedef int (*sceMpegRingbufferCB)(void* pData, int iNumPackets, void* pParam);
 
 typedef struct SceMpegRingbuffer
 {
     /** packets */
-	SceInt32			iPackets;
+	int iPackets;
 
     /** unknown */
-	SceUInt32			iUnk0;
+	int iUnk0;
     /** unknown */
-	SceUInt32			iUnk1;
+	int iUnk1;
     /** unknown */
-	SceUInt32			iUnk2;
+	int iUnk2;
     /** unknown */
-	SceUInt32			iUnk3;
+	int iUnk3;
 
     /** pointer to data */
-	ScePVoid			pData;
+	void* pData;
 
     /** ringbuffer callback */
 	sceMpegRingbufferCB	Callback;
     /** callback param */
-	ScePVoid			pCBparam;
+	void* pCBparam;
 
     /** unknown */
-	SceUInt32			iUnk4;
+	int iUnk4;
     /** unknown */
-	SceUInt32			iUnk5;
+	int iUnk5;
     /** mpeg id */
-	SceMpeg				pSceMpeg;
+	SceMpeg 	pSceMpeg;
 
 } SceMpegRingbuffer;
 
 typedef struct SceMpegAu
 {
     /** unknown */
-	SceUInt32			iUnk0;
+	int iUnk0;
     /** presentation timestamp? */
-	SceInt32 			iTimestamp;
+	int  iTimestamp;
     /** unknown */
-	SceUInt32			iUnk1;
+	int iUnk1;
     /** unknown */
-	SceUInt32			iUnk2;
+	int iUnk2;
     /** Es buffer handle */
-	SceUInt32			iEsBuffer;
+	void* iEsBuffer;
     /** Au size */
-	SceUInt32			iAuSize;
+	int iAuSize;
 
 } SceMpegAu;
 
 typedef struct SceMpegAvcMode
 {
 	/** unknown, set to -1 */
-	SceInt32			iUnk0;
+	int iUnk0;
 	/** unknonw, set to 3 */
-	SceInt32			iUnk1;
+	int iUnk1;
 
 } SceMpegAvcMode;
 
@@ -84,7 +84,7 @@ typedef struct SceMpegAvcMode
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegInit();
+int sceMpegInit();
 
 /**
  * sceMpegFinish
@@ -98,7 +98,7 @@ SceVoid sceMpegFinish();
  *
  * @returns < 0 if error else ringbuffer data size.
  */
-SceInt32 sceMpegRingbufferQueryMemSize(SceInt32 iPackets);
+int sceMpegRingbufferQueryMemSize(int iPackets);
 
 /**
  * sceMpegRingbufferConstruct
@@ -112,7 +112,7 @@ SceInt32 sceMpegRingbufferQueryMemSize(SceInt32 iPackets);
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegRingbufferConstruct(SceMpegRingbuffer* Ringbuffer, SceInt32 iPackets, ScePVoid pData, SceInt32 iSize, sceMpegRingbufferCB Callback, ScePVoid pCBparam);
+int sceMpegRingbufferConstruct(SceMpegRingbuffer* Ringbuffer, int iPackets, void* pData, int iSize, sceMpegRingbufferCB Callback, void* pCBparam);
 
 /**
  * sceMpegRingbufferDestruct
@@ -128,7 +128,7 @@ SceVoid sceMpegRingbufferDestruct(SceMpegRingbuffer* Ringbuffer);
  *
  * @returns < 0 if error else number of free packets in the ringbuffer.
  */
-SceInt32 sceMpegRingbufferAvailableSize(SceMpegRingbuffer* Ringbuffer);
+int sceMpegRingbufferAvailableSize(SceMpegRingbuffer* Ringbuffer);
 
 /**
  * sceMpegRingbufferPut
@@ -139,7 +139,7 @@ SceInt32 sceMpegRingbufferAvailableSize(SceMpegRingbuffer* Ringbuffer);
  *
  * @returns < 0 if error else number of packets.
  */
-SceInt32 sceMpegRingbufferPut(SceMpegRingbuffer* Ringbuffer, SceInt32 iNumPackets, SceInt32 iAvailable);
+int sceMpegRingbufferPut(SceMpegRingbuffer* Ringbuffer, int iNumPackets, int iAvailable);
 
 /**
  * sceMpegQueryMemSize
@@ -148,7 +148,7 @@ SceInt32 sceMpegRingbufferPut(SceMpegRingbuffer* Ringbuffer, SceInt32 iNumPacket
  *
  * @returns < 0 if error else decoder data size.
  */
-SceInt32 sceMpegQueryMemSize(int iUnk);
+int sceMpegQueryMemSize(int iUnk);
 
 /**
  * sceMpegCreate
@@ -163,7 +163,8 @@ SceInt32 sceMpegQueryMemSize(int iUnk);
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegCreate(SceMpeg* Mpeg, ScePVoid pData, SceInt32 iSize, SceMpegRingbuffer* Ringbuffer, SceInt32 iFrameWidth, SceInt32 iUnk1, SceInt32 iUnk2);
+int sceMpegCreate(SceMpeg* Mpeg, void* pData, int iSize, SceMpegRingbuffer* Ringbuffer, int iFrameWidth, int iUnk1, int iUnk2);
+int sceMpeg_75E21135(SceMpeg* Mpeg, void* pData, int iSize, SceMpegRingbuffer* Ringbuffer, int iFrameWidth, int iUnk1, int iUnk2);
 
 /**
  * sceMpegDelete
@@ -181,7 +182,7 @@ SceVoid sceMpegDelete(SceMpeg* Mpeg);
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegQueryStreamOffset(SceMpeg* Mpeg, ScePVoid pBuffer, SceInt32* iOffset);
+int sceMpegQueryStreamOffset(SceMpeg* Mpeg, void* pBuffer, int* iOffset);
 
 /**
  * sceMpegQueryStreamSize
@@ -191,7 +192,7 @@ SceInt32 sceMpegQueryStreamOffset(SceMpeg* Mpeg, ScePVoid pBuffer, SceInt32* iOf
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegQueryStreamSize(ScePVoid pBuffer, SceInt32* iSize);
+int sceMpegQueryStreamSize(void* pBuffer, int* iSize);
 
 /**
  * sceMpegRegistStream
@@ -202,7 +203,7 @@ SceInt32 sceMpegQueryStreamSize(ScePVoid pBuffer, SceInt32* iSize);
  *
  * @returns 0 if error.
  */
-SceMpegStream* sceMpegRegistStream(SceMpeg* Mpeg, SceInt32 iStreamID, SceInt32 iUnk);
+SceMpegStream* sceMpegRegistStream(SceMpeg* Mpeg, int iStreamID, int iUnk);
 
 /**
  * sceMpegUnRegistStream
@@ -217,20 +218,20 @@ SceVoid sceMpegUnRegistStream(SceMpeg Mpeg, SceMpegStream* pStream);
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegFlushAllStream(SceMpeg* Mpeg);
+int sceMpegFlushAllStream(SceMpeg* Mpeg);
 
 /**
  * sceMpegMallocAvcEsBuf
  *
  * @returns 0 if error else pointer to buffer.
  */
-ScePVoid sceMpegMallocAvcEsBuf(SceMpeg* Mpeg);
+void* sceMpegMallocAvcEsBuf(SceMpeg* Mpeg);
 
 /**
  * sceMpegFreeAvcEsBuf
  *
  */
-SceVoid sceMpegFreeAvcEsBuf(SceMpeg* Mpeg, ScePVoid pBuf);
+SceVoid sceMpegFreeAvcEsBuf(SceMpeg* Mpeg, void* pBuf);
 
 /**
  * sceMpegQueryAtracEsSize
@@ -241,7 +242,7 @@ SceVoid sceMpegFreeAvcEsBuf(SceMpeg* Mpeg, ScePVoid pBuf);
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegQueryAtracEsSize(SceMpeg* Mpeg, SceInt32* iEsSize, SceInt32* iOutSize);
+int sceMpegQueryAtracEsSize(SceMpeg* Mpeg, int* iEsSize, int* iOutSize);
 
 /**
  * sceMpegInitAu
@@ -252,7 +253,7 @@ SceInt32 sceMpegQueryAtracEsSize(SceMpeg* Mpeg, SceInt32* iEsSize, SceInt32* iOu
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegInitAu(SceMpeg* Mpeg, ScePVoid pEsBuffer, SceMpegAu* pAu);
+int sceMpegInitAu(SceMpeg* Mpeg, void* pEsBuffer, SceMpegAu* pAu);
 
 /**
  * sceMpegGetAvcAu
@@ -264,14 +265,14 @@ SceInt32 sceMpegInitAu(SceMpeg* Mpeg, ScePVoid pEsBuffer, SceMpegAu* pAu);
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegGetAvcAu(SceMpeg* Mpeg, SceMpegStream* pStream, SceMpegAu* pAu, SceInt32* iUnk);
+int sceMpegGetAvcAu(SceMpeg* Mpeg, SceMpegStream* pStream, SceMpegAu* pAu, int* iUnk);
 
 /**
  * sceMpegAvcDecodeMode
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegAvcDecodeMode(SceMpeg* Mpeg, SceMpegAvcMode* pMode);
+int sceMpegAvcDecodeMode(SceMpeg* Mpeg, SceMpegAvcMode* pMode);
 
 /**
  * sceMpegAvcDecode
@@ -284,7 +285,7 @@ SceInt32 sceMpegAvcDecodeMode(SceMpeg* Mpeg, SceMpegAvcMode* pMode);
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegAvcDecode(SceMpeg* Mpeg, SceMpegAu* pAu, SceInt32 iFrameWidth, ScePVoid pBuffer, SceInt32* iInit);
+int sceMpegAvcDecode(SceMpeg* Mpeg, SceMpegAu* pAu, int iFrameWidth, void* pBuffer, int* iInit);
 
 /**
  * sceMpegAvcDecodeStop
@@ -296,7 +297,7 @@ SceInt32 sceMpegAvcDecode(SceMpeg* Mpeg, SceMpegAu* pAu, SceInt32 iFrameWidth, S
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegAvcDecodeStop(SceMpeg* Mpeg, SceInt32 iFrameWidth, ScePVoid pBuffer, SceInt32* iStatus);
+int sceMpegAvcDecodeStop(SceMpeg* Mpeg, int iFrameWidth, void* pBuffer, int* iStatus);
 
 /**
  * sceMpegGetAtracAu
@@ -308,7 +309,7 @@ SceInt32 sceMpegAvcDecodeStop(SceMpeg* Mpeg, SceInt32 iFrameWidth, ScePVoid pBuf
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegGetAtracAu(SceMpeg* Mpeg, SceMpegStream* pStream, SceMpegAu* pAu, ScePVoid pUnk);
+int sceMpegGetAtracAu(SceMpeg* Mpeg, SceMpegStream* pStream, SceMpegAu* pAu, void* pUnk);
 
 /**
  * sceMpegAtracDecode
@@ -320,7 +321,7 @@ SceInt32 sceMpegGetAtracAu(SceMpeg* Mpeg, SceMpegStream* pStream, SceMpegAu* pAu
  *
  * @returns 0 if success.
  */
-SceInt32 sceMpegAtracDecode(SceMpeg* Mpeg, SceMpegAu* pAu, ScePVoid pBuffer, SceInt32 iInit);
+int sceMpegAtracDecode(SceMpeg* Mpeg, SceMpegAu* pAu, void* pBuffer, int iInit);
 
 #ifdef __cplusplus
 }

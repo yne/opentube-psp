@@ -1,4 +1,4 @@
-TARGET = ../kernel
+TARGET = ../kubridge
 OBJS = kernel.o
 
 INCDIR = ../lib ../core
@@ -16,5 +16,6 @@ PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak
 
 all:
-	rm *.o $(TARGET).elf
-#	psp-packer.exe $(TARGET).prx
+	rm -f *.o $(TARGET) $(TARGET).elf PARAM.SFO
+	psp-packer.exe $(TARGET).prx
+	mv $(TARGET).prx $(TARGET)

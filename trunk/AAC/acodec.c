@@ -11,7 +11,7 @@ Acodec a={load,play,seek,stop};
 
 char*load(){
 	Alert("aload\n");
-	a.au.freq=ot->dmx->Ahz;
+	a.au.freq=ot->dmx->hz;
 	a.chan=sceAudioChReserve(PSP_AUDIO_NEXT_CHANNEL,PSP_AUDIO_SAMPLE_ALIGN(1024),PSP_AUDIO_FORMAT_STEREO);
 	if(sceAudiocodecCheckNeedMem(&a.au, PSP_CODEC_AAC)<0)return "chekmem";
 	if(sceAudiocodecGetEDRAM(&a.au, PSP_CODEC_AAC)<0)return "getEDRAM";
@@ -21,20 +21,20 @@ char*load(){
 unsigned out[2][1024*2] __attribute__((aligned(64)));
 char*play(){
 	Alert("aplay\n");
-	for(int s=0;s<ot->dmx->f->AstszLen;s++){
-//		Alert("audio ...\r");
+	for(int s=0;s<ot->dmx->Alen;s++){
+		Alert("audio ...\r");
 		if(/*ot->sys->pad!=ot->sys->_pad&&*/ot->sys->pad&PSP_CTRL_CIRCLE)break;
-		a.au.src=ot->dmx->getASample(s);
-		a.au.srcLen=ot->dmx->f->Astsz[s];
+		a.au.src=ot->dmx->getASample(s,&a.au.srcLen);
 		a.au.dst=out[s%2];
-		sceAudiocodecDecode(&a.au,PSP_CODEC_AAC);
+		if(sceAudiocodecDecode(&a.au,PSP_CODEC_AAC))$("a!\n");
 		sceAudioOutputBlocking(a.chan, PSP_AUDIO_VOLUME_MAX,out[s%2]);
 //		if(s>60)return NULL;
 	}
+	Alert("aplay:ok\n");
 	return NULL;
 }
 char*seek(int t,int o){
-	Alert("aplay\n");
+	Alert("aseek\n");
 	return NULL;
 }
 int unload(SceSize args,void*argp){
@@ -43,12 +43,12 @@ int unload(SceSize args,void*argp){
 	return 0;
 }
 char*stop(){
-	Alert("astop\n");
+	Alert("astop");
 	if(a.au.EDRAM)sceAudiocodecReleaseEDRAM(&a.au);
 	if(a.chan)sceAudioChRelease(a.chan);
 	ot->dmx->a=NULL;
 	sceKernelStartThread(sceKernelCreateThread("arakiri",unload,0x11,0x10000,0,0),0,NULL);//to be unable to return
-	return NULL;
+	return 0;
 }
 int module_stop(int args,void*argp){
 	return 0;

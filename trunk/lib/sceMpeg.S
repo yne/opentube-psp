@@ -7,8 +7,10 @@
 	STUB_FUNC 0x611E9E11,sceMpegQueryStreamSize
 	STUB_FUNC 0x682A619B,sceMpegInit
 	STUB_FUNC 0x874624D6,sceMpegFinish
-	STUB_FUNC 0xC132E22F,sceMpegQueryMemSize
-	STUB_FUNC 0xD8C5F121,sceMpegCreate
+#	STUB_FUNC 0xC132E22F,sceMpegQueryMemSize #ori
+	STUB_FUNC 0x42C679F6,sceMpegQueryMemSize #new
+#	STUB_FUNC 0xD8C5F121,sceMpegCreate #ori
+	STUB_FUNC 0x75E21135,sceMpegCreate #new
 	STUB_FUNC 0x606A4649,sceMpegDelete
 	STUB_FUNC 0x42560F23,sceMpegRegistStream
 	STUB_FUNC 0x591A4AA2,sceMpegUnRegistStream
@@ -22,10 +24,12 @@
 	STUB_FUNC 0xFE246728,sceMpegGetAvcAu
 	STUB_FUNC 0x8C1E027D,sceMpegGetPcmAu
 	STUB_FUNC 0xE1CE83A7,sceMpegGetAtracAu
+	STUB_FUNC 0x11F95CF1,sceMpegGetAvcNalAu
 	STUB_FUNC 0x500F0429,sceMpegFlushStream
 	STUB_FUNC 0x707B7629,sceMpegFlushAllStream
 	STUB_FUNC 0x0E3C2E9D,sceMpegAvcDecode
 	STUB_FUNC 0x0F6C18D7,sceMpegAvcDecodeDetail
+	STUB_FUNC 0xCF3547A2,sceMpegAvcDecodeDetail2
 	STUB_FUNC 0xA11C7026,sceMpegAvcDecodeMode
 	STUB_FUNC 0x740FCCD1,sceMpegAvcDecodeStop
 	STUB_FUNC 0x800C44DF,sceMpegAtracDecode
@@ -39,7 +43,5 @@
 	STUB_FUNC 0xB27711A8,sceMpeg_B27711A8
 	STUB_FUNC 0xD4DD6E75,sceMpeg_D4DD6E75
 	STUB_FUNC 0xC345DED2,sceMpeg_C345DED2
-	STUB_FUNC 0xCF3547A2,sceMpegAvcDecodeDetail2
 	STUB_FUNC 0x988E9E12,sceMpeg_988E9E12
-	STUB_FUNC 0x11F95CF1,sceMpegGetAvcNalAu
 	STUB_END
