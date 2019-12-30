@@ -1,0 +1,38 @@
+<body>
+<style>
+body{
+	background:#000;
+}
+button{
+	border:1px solid #888;
+	color:transparent;
+	width:16px;
+	height:16px;
+}
+</style>
+<div id="out"></div><input type="button" onclick="compute()"/>
+<script>
+var out=document.getElementById('out');
+for(var y=0;y<8;y++){
+	for(var x=0;x<8;x++)
+		out.insertAdjacentHTML('beforeend','<button style="background-color:#000" onclick="change(this)"/>&nbsp;</button>');
+	out.insertAdjacentHTML('beforeend','<br/>');
+}
+function change(node){
+	node.style.backgroundColor=((node.style.backgroundColor.indexOf('0')==-1)?'#000':'#FFF');
+}
+function blinde(i){return (i.length==1?'0':'')+i;}
+function compute(){
+	var tab=document.getElementsByTagName('button'),res="";
+	for(var i=0;i<tab.length;){
+		var b=0;
+		for(var n=0,b=0;n<8;n++,i++){
+			b|=(tab[i].style.backgroundColor.indexOf('0')==-1)<<7-n
+		}
+		res+='\\x'+blinde(b.toString(16));
+	}
+//		res+=((tab[i].style.backgroundColor.indexOf('0')==-1)?'FF ':'00 ');
+	alert('"'+res+'"');
+}
+</script>
+</body>

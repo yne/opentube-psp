@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "vcodec.h"
+#include <videocodec.h>
 #include "core.h"
 
 #define PROFILE_BASELINE 0x42
@@ -70,21 +71,49 @@ char* load(){
 	if(sceMpegInitAu(Mpeg,(ot->me->buffAu=ot->me->pool+0x10000),ot->me->mpegAu))return("MpgInit");
 	return NULL;
 }
-void blitErr(){
+void blitErr(int err){
+	printf("%08X",err);return;
 	void* vram=swapBuffer();
 	for(int y=0;y<4;y++)
 		memcpy(vram+4*y*ot->lcd->size,vdecErr+48*y,48*4);
 }
+//VCodec vcodec;
+//((int**)*Mpeg)[414]:mode
+#define U_EXTRACT_CALL(x) ((((u32)_lw((u32)x)) & ~0x0C000000) << 2)
 char* play(){
 	Alert("vplay\n");
 	delay=1000000000/ot->dmx->fps;
 	next=sceKernelGetSystemTimeWide();
+	int tmp=0;
+	Sudo(6,(int)&tmp,0);
+	tmp-=0x12230;
+	char* (*getAuSample)(void*, int) = (void*)tmp+0x61E0;
+	int   (*sub_08818)(int, VCodec*,void*,void*) = (void*)tmp+0x8818;
+	
 	for(u32 s=0;(s<ot->dmx->Vlen);s++){
 		if(ot->sys->pad&PSP_CTRL_CIRCLE)break;
 		ot->me->nal.nal=ot->dmx->getVSample(s,&ot->me->nal.nalLen);
 		ot->me->nal.mode=s?0:3;
 		sceMpegGetAvcNalAu(Mpeg,&ot->me->nal,ot->me->mpegAu);
-		if(sceMpegAvcDecode(Mpeg,ot->me->mpegAu,ot->lcd->size,0,&ot->me->pics)<0){blitErr();continue;}//("VdecErr");
+		//((int*)ot->me->mpegAu)[5]=samplelen;
+		#if 0
+			VCodec*vcodec=(VCodec*)(((int*)ot->me->mpeg)[419]);//if(fw==660)432
+			vcodec->sample = getAuSample (Mpeg, ((int*)ot->me->mpegAu)[4]);
+			vcodec->sampleLen = ((int*)ot->me->mpegAu)[5];
+			vcodec->cscMode|= 0xC0000000;
+			vcodec->SEI = (void*)((int*)ot->me->mpeg)[444];
+			vcodec->crop = (void*)((int*)ot->me->mpeg)[445];
+			printf(">%08X %08X\n",
+				sceVideocodecDecode (vcodec, 0),
+				sub_08818(((int*)ot->me->mpeg)[424],vcodec,vcodec->SEI,vcodec->crop)
+			);
+//			return sub_08A18(((int *) mpeg)[424],vcodec);
+			sceKernelDelayThread(1000*500);
+		#else
+			int i;
+		if((i=sceMpegAvcDecode(Mpeg,ot->me->mpegAu,ot->lcd->size,0,&ot->me->pics))<0){blitErr(0);continue;}//("VdecErr");
+			printf("%08X\n",i);
+		#endif
 		sceMpegAvcDecodeDetail2(Mpeg,&ot->me->d);//  ot->me->d = *Mpeg[414]<7?*Mpeg[424]+0x2C:*Mpeg[419];
 		SceMpegAvcMode mode={-1,ot->lcd->type};
 		sceMpegAvcDecodeMode(&ot->me->mpeg,&mode);

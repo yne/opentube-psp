@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-
+#include "core.h"
 #include "modplay.h"
 #include "effects.h"
 #include "xm.h"
@@ -21,7 +21,7 @@
 
 
 #define SAFE_MALLOC(dest, a) \
-	if(!(dest = myMalloc(a))) { \
+	if(!(dest = Malloc(a))) { \
 		MODFILE_Free(xm); \
 		return -2; \
 	}
@@ -524,7 +524,7 @@ int MODFILE_SetXM(u8 *xmfile, int xmlength, MODFILE *xm) {
 				}
 
 				/* Envelope points */
-				xm->instruments[i].envVolume.envPoints = myMalloc(sizeof(EnvPoint) *(int)xm->instruments[i].envVolume.numPoints);
+				xm->instruments[i].envVolume.envPoints = Malloc(sizeof(EnvPoint) *(int)xm->instruments[i].envVolume.numPoints);
 				for(j = 0; j < xm->instruments[i].envVolume.numPoints; j++) {
 
 					xm->instruments[i].envVolume.envPoints[j].x = getu16(&xmfile[ofs + 129 +(j * 4)]);
@@ -562,7 +562,7 @@ int MODFILE_SetXM(u8 *xmfile, int xmlength, MODFILE *xm) {
 				}
 
 				/* Envelope points */
-				xm->instruments[i].envPanning.envPoints = myMalloc(sizeof(EnvPoint) *(int)xm->instruments[i].envPanning.numPoints);
+				xm->instruments[i].envPanning.envPoints = Malloc(sizeof(EnvPoint) *(int)xm->instruments[i].envPanning.numPoints);
 				for(j = 0; j < xm->instruments[i].envPanning.numPoints; j++) {
 
 					xm->instruments[i].envPanning.envPoints[j].x = getu16(&xmfile[ofs + 177 +(j * 4)]);
@@ -654,7 +654,7 @@ int MODFILE_SetXM(u8 *xmfile, int xmlength, MODFILE *xm) {
 						s16 old, new;
 						u32 k;
 
-						d = myMalloc(length * 2);
+						d = Malloc(length * 2);
 						memcpy(d, &xmfile[ofs], length * 2);
 						xm->samples[sampleOfs + j].sampleInfo.sampledata = d;
 						ofs += length * 2;
@@ -673,7 +673,7 @@ int MODFILE_SetXM(u8 *xmfile, int xmlength, MODFILE *xm) {
 						s8 old, new;
 						u32 k;
 
-						d = myMalloc(length);
+						d = Malloc(length);
 						memcpy(d, &xmfile[ofs], length);
 						xm->samples[sampleOfs + j].sampleInfo.sampledata = d;
 						ofs += length;

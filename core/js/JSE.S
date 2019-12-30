@@ -1,0 +1,46 @@
+	.set noreorder
+
+#include "pspstub.s"
+
+	STUB_START "JSE",0x00090000,0x00280005
+	STUB_FUNC  0x95935AFC,js_test
+	STUB_FUNC  0x8D642FB1,js_addModule
+	STUB_FUNC  0x5AF181FB,js_newObject
+	STUB_FUNC  0x1776BE04,js_addObj
+	STUB_FUNC  0xBBB84232,js_addClass
+	STUB_FUNC  0x7AC58FDC,js_getContext
+	STUB_FUNC  0x5E233C36,js_getGlobalObject
+	STUB_FUNC  0x6EB05312,js_convertArguments
+	STUB_FUNC  0xC501F7FB,js_getElement
+	STUB_FUNC  0xA2574AA9,js_getProperty
+	STUB_FUNC  0xAD977CC9,js_setProperty
+	STUB_FUNC  0x3D6FB6F8,js_delProperty
+	STUB_FUNC  0x24C3845A,js_getStringLength
+	STUB_FUNC  0xADF72D92,js_getStringBytes
+	STUB_FUNC  0xE76E2E93,js_newString
+	STUB_FUNC  0xE8E6A1F1,js_newBlob
+	STUB_FUNC  0xE4AB1197,js_convertValue
+	STUB_FUNC  0xE8D20D8E,js_numberToValue
+	STUB_FUNC  0x5C614B34,js_valueToNumber
+	STUB_FUNC  0x8BF7443C,js_valueToObject
+	STUB_FUNC  0x03A8718F,js_valueToString
+	STUB_FUNC  0x12E80E83,js_valueToECMAUint32
+	STUB_FUNC  0xDEF43686,js_valueToUint16
+	STUB_FUNC  0x265E0E3A,js_evaluateScript
+	STUB_FUNC  0xCA3D7C28,js_callFunctionName
+	STUB_FUNC  0x7803EBA9,js_typeOfValue
+	STUB_FUNC  0x6C56460A,js_computeThis
+	STUB_FUNC  0x2B6D57E0,js_defineFunction
+	STUB_FUNC  0xDCE4B405,js_defineFunctions
+	STUB_FUNC  0x3465956E,js_strdup
+	STUB_FUNC  0xDFF11919,js_realloc
+	STUB_FUNC  0xFC4105A3,js_malloc
+	STUB_FUNC  0xDD8A2A2F,js_free
+	STUB_FUNC  0xF980688F,c_addModule
+	STUB_FUNC  0x3E1B1F8B,c_delModule
+	STUB_FUNC  0x56589224,c_strlen
+	STUB_FUNC  0x8F255A8D,c_memalign
+	STUB_FUNC  0xEB96112E,c_malloc
+	STUB_FUNC  0x3B8C3EC7,c_free
+	STUB_FUNC  0x3FB0523F,c_realloc
+	STUB_END

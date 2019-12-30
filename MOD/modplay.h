@@ -8,7 +8,6 @@
 
 #include "modplay_core.h"
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif

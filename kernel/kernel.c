@@ -94,6 +94,7 @@ int setBackL(int time){
 */
 
 int module_start(SceSize args,int*argp){
+	SceModule*mod;
 	if(args==3*sizeof(int)){
 		switch(argp[0]){
 			case 1:alert("startME");meBootStart (argp[1],argp[2])<0?alert(":fail\n"):alert(":done\n");break;
@@ -101,6 +102,7 @@ int module_start(SceSize args,int*argp){
 			case 3:getThCWD(argp[1],argp[2]);break;
 			case 4:getModel(argp[1]);break;
 			case 5:setBackL(argp[1]);break;
+			case 6:if((mod=(SceModule*)sceKernelFindModuleByName("sceMpegVsh_library")))*(((int**)argp)[1])=mod->text_addr;break;
 			default:break;
 		}
 	}else{

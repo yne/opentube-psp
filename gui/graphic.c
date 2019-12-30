@@ -301,6 +301,9 @@ void left(){
 //	clean();
 //	Open("http://gdata.youtube.com/feeds/api/videos?q=djmax&start-index=1&max-results=20&v=1",PSP_O_RDONLY,0777);
 //	Play("http://192.168.0.100/480p.mp4");
+//Play("http://o-o.preferred.par08s01.v20.lscache7.c.youtube.com/videoplayback?sparams=id%2Cexpire%2Cip%2Cipbits%2Citag%2Cratebypass%2Coc%3AU0hQSVFSVF9FSkNOMF9JTFhF&fexp=909514%2C907605&itag=18&ip=0.0.0.0&signature=6C4320C2B6002E668D8D7D000D05C80E58739305.55908F9B7BEA69E87FD8AF0D35F24E3DAAF7F7A2&sver=3&ratebypass=yes&expire=1314176400&key=yt1&ipbits=0&id=15f9eab82abe1123");
+Play("http://o-o.preferred.par08s01.v20.lscache7.c.youtube.com/videoplayback?sparams=id%2Cexpire%2Cip%2Cipbits%2Citag%2Cratebypass%2Coc%3AU0hQSVFSVF9FSkNOMF9JTFhF&fexp=909514%2C907605&itag=18&ip=0.0.0.0&signature=6C4320C2B6002E668D8D7D000D05C80E58739305.55908F9B7BEA69E87FD8AF0D35F24E3DAAF7F7A2&sver=3&ratebypass=yes&expire=1314176400&key=yt1&ipbits=0&id=15f9eab82abe1123&title=SebastiAn%20-%20Organia");
+//if(result)puts(result);
 //	restor();
 }
 void right(){
@@ -351,6 +354,8 @@ char*draw(int mode){
 	if(!ready)init();
 	if(mode&1){//wall
 		sceGuStartList(GU_DIRECT);
+//		sceGuDrawBuffer(GU_PSM_8888,(void*)(ot->lcd->draw^0x44000000),ot->lcd->size);
+//		sceGuDispBuffer(SCR_WIDTH,SCR_HEIGHT,(void*)(ot->lcd->disp^0x44000000),ot->lcd->size);
 		sceGuTexImage(0,bg.tbw,bg.h,bg.tbw,bg.p);
 		sceGuTexSync();
 		if(bg.tbw<512)

@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include "core.h"
 #include "modplay.h"
 #include "s3m.h"
 #include "mod.h"
@@ -107,14 +107,14 @@ int MODFILE_Set(u8 *modfile, int modlength, MODFILE *mod) {
 int MODFILE_Load(const char *fname, MODFILE *mod) {
 	int fd,modlength = 0;
 	if(!fname || !mod)return -2;
-	if((fd=sceIoOpen(fname, PSP_O_RDONLY ,0777))<0)return -1;
+	if((fd=Open(fname, PSP_O_RDONLY ,0777))<0)return -1;
 	sceIoLseek(fd, 0, SEEK_END);
-	void *file=myMalloc((modlength=sceIoLseek(fd, 0, SEEK_CUR)));
+	void *file=Malloc((modlength=sceIoLseek(fd, 0, SEEK_CUR)));
 	sceIoLseek(fd, 0, SEEK_SET);
 	if(file)sceIoRead(fd,file, modlength);
 	sceIoClose(fd);
 	int ret = MODFILE_Set(file, modlength, mod);
-	myFree(file);
+	Free(file);
 	return ret;
 }
 /**
@@ -139,7 +139,7 @@ void MODFILE_Start(MODFILE *mod) {
 	mod->patternloop_to = 0;
 	mod->patternloop_count = 0;
 	mod->cur_master_volume = mod->master_volume;
-	mod->tempmixbuf = myMalloc(MODFILE_BPM2SamplesPerTick(mod, 32) * sizeof(s32) * 2);
+	mod->tempmixbuf = Malloc(MODFILE_BPM2SamplesPerTick(mod, 32) * sizeof(s32) * 2);
 	for(int i = 0; i < mod->nSamples; i++)
 		mod->samples[i].middle_c = mod->samples[i].default_middle_c;
 	for(int i = 0; i < MODPLAY_MAX_CHANNELS; i++) {
@@ -166,7 +166,7 @@ void MODFILE_Start(MODFILE *mod) {
  **/
 void MODFILE_Stop(MODFILE *mod) {
 	if(!mod->tempmixbuf)return;
-	myFree(mod->tempmixbuf);
+	Free(mod->tempmixbuf);
 	mod->tempmixbuf = NULL;
 	mod->playing = FALSE;
 }
@@ -222,7 +222,6 @@ void MODFILE_Player(MODFILE *mod) {
 				retval |= MODFILE_Process(mod);
 				mod->speedcounter = 0;
 		 	}
-//			write(1,retval?"?\n":"!\n",2);
 			retval |= MODFILE_EffectHandler(mod);
 		}
 	} while(remain > 0);
@@ -247,41 +246,41 @@ void MODFILE_Free(MODFILE *mod) {
 	if(mod->patterns) {
 		for(int i = 0; i < mod->nPatterns; i++) {
 			if(mod->patterns[i]) {
-				myFree(mod->patterns[i]);
+				Free(mod->patterns[i]);
 				mod->patterns[i] = NULL;
 			}
 		}
-		myFree(mod->patterns);
+		Free(mod->patterns);
 		mod->patterns = NULL;
 	}
 	/* Free instruments */
 	if(mod->instruments) {
 		for(int i = 0; i < mod->nInstruments; i++) {
 			if(mod->instruments[i].envVolume.envPoints) {
-				myFree(mod->instruments[i].envVolume.envPoints);
+				Free(mod->instruments[i].envVolume.envPoints);
 				mod->instruments[i].envVolume.envPoints = NULL;
 			}
 			if(mod->instruments[i].envPanning.envPoints) {
-				myFree(mod->instruments[i].envPanning.envPoints);
+				Free(mod->instruments[i].envPanning.envPoints);
 				mod->instruments[i].envPanning.envPoints = NULL;
 			}
 		}
-		myFree(mod->instruments);
+		Free(mod->instruments);
 		mod->instruments = NULL;
 	}
 	/* Free samples */
 	if(mod->samples ) {
 		for(int i = 0; i < mod->nSamples; i++) {
 			if(mod->samples[i].sampleInfo.sampledata) {
-				myFree(mod->samples[i].sampleInfo.sampledata);
+				Free(mod->samples[i].sampleInfo.sampledata);
 				mod->samples[i].sampleInfo.sampledata = NULL;
 			}
 		}
-		myFree(mod->samples);
+		Free(mod->samples);
 		mod->samples = NULL;
 	}
 	if(mod->patternLengths) {
-		myFree(mod->patternLengths);
+		Free(mod->patternLengths);
 		mod->patternLengths = NULL;
 	}
 	mod->set = FALSE;
@@ -327,8 +326,8 @@ void MODFILE_SetFormat(MODFILE *mod, int freq, int channels, int bits, BOOL mixs
 	mod->mixsigned = mixsigned;
 	if(mod->playing) {
 		if(mod->tempmixbuf) {
-			myFree(mod->tempmixbuf);
-			mod->tempmixbuf = myMalloc(MODFILE_BPM2SamplesPerTick(mod,32) * sizeof(s32) * 2);
+			Free(mod->tempmixbuf);
+			mod->tempmixbuf = Malloc(MODFILE_BPM2SamplesPerTick(mod,32) * sizeof(s32) * 2);
 		}
 		MODFILE_SetBPM(mod, mod->bpm);
 	}
@@ -351,15 +350,15 @@ MOD_Instrument *MODFILE_MakeInstrument(void *rawData, int nBytes, int nBits) {
 	if(rawData == NULL || nBytes <= 0 ||(nBits != 8 && nBits != 16))
 		return NULL;
 
-	instr = myMalloc(sizeof(MOD_Instrument));
+	instr = Malloc(sizeof(MOD_Instrument));
 	if(instr == NULL)
 		return NULL;
 	memset(instr, 0, sizeof(MOD_Instrument));
 
-	smpl = myMalloc(sizeof(MOD_Sample));
+	smpl = Malloc(sizeof(MOD_Sample));
 	if(smpl == NULL) {
 
-		myFree(instr);
+		Free(instr);
 		return NULL;
 	}
 	memset(smpl, 0, sizeof(MOD_Sample));

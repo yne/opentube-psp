@@ -22,7 +22,7 @@ unsigned out[2][1024*2] __attribute__((aligned(64)));
 char*play(){
 	Alert("aplay\n");
 	for(int s=0;s<ot->dmx->Alen;s++){
-		Alert("audio ...\r");
+//		Alert("audio ...\r");
 		if(/*ot->sys->pad!=ot->sys->_pad&&*/ot->sys->pad&PSP_CTRL_CIRCLE)break;
 		a.au.src=ot->dmx->getASample(s,&a.au.srcLen);
 		a.au.dst=out[s%2];

@@ -39,7 +39,7 @@ int modload(char* path){
 	return modid;
 }
 char*sudo(int mode,u32 nid,int param){
-	int ret,mod=sceKernelLoadModule("kubridge",0,0);
+	int ret,mod=sceKernelLoadModule("host0:/kubridge",0,0);
 	sudoArg arg={mode,nid,param};
 	if(mod>0)sceKernelStartModule(mod,3*4,&arg,&ret,NULL);
 	return NULL;
@@ -155,11 +155,11 @@ int start(SceSize args,void*argp){
 	sceKernelStartThread((padTh=sceKernelCreateThread("OpenTube.ctrl",pad,0x20,0x10000,0,0)),0,NULL);
 	Alert("openTube<"__DATE__" "__TIME__">\n");
 	ioInit();
-	modload("gui");
+//	modload("gui");
 	if(ot->gui&&ot->gui->init)ot->gui->init();
-//	char*err=Play("test.mod");
-//	if(err)Alert(err);
-//	Exit();
+	char*err=Play("480.270.mstr.mp4");
+	if(err)Alert(err);
+	Exit();
 	sceKernelExitDeleteThread(0);
 	return 0;
 }

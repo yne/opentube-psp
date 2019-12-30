@@ -1,0 +1,44 @@
+<html>
+<style>
+	*{border:0;margin:0;padding:0;border-collapse:collapse;}
+	.d{border-bottom:1px dotted #888;}
+/*	body{background:#000 url('back2.jpg');}*/
+	i{color:#888}
+</style>
+<script>
+var c,p=0,result=[];
+function ext(from,to){
+	var a=c.indexOf(from,p)+from.length;if(a==-1)return "not found (a)";else p=a;
+	var b=c.indexOf(to,a);if(b==-1)return "not found (b)";else p=b;
+	return c.substring(a,b)
+}
+function ytSearch(keyword){
+	if(keyword[0]==' ')return;
+	p=0;c=ot.open('http://gdata.youtube.com/feeds/api/videos?q='+escape(keyword)+'&start-index=1&max-results=15&v=1');
+	for(var i=0;(i<15)&&(p=c.indexOf("<entry>",p)+1);i++){//15
+		result[i]=ext("<id>http://gdata.youtube.com/feeds/api/videos/","</id>");
+		document.getElementById('t'+i).innerHTML=ext("<title type='text'>","<");
+	}
+}
+function ytGetUrl(id){
+	c=ot.open("http://www.youtube.com/watch?v="+id);p=0;
+	var result=ext("itag=34,url=",'\\');
+	result=unescape(result);
+	return ot.play(result);
+}
+function action(col,play){
+	for(var i=0;i<col.length;i++)
+		if(col[i].checked)return play?ot.play(ytGetUrl(result[i])):document.location.href=ytGetUrl(result[i]);
+}
+</script>
+<body><table><form name="f"><tr><td><input id="search" value="uffie" style="width:365px"
+/><iframe style="width:0;height:0;position:absolute;" src="http://www.google-analytics.com/__utm.gif?&utmsr=480x272&utmsc=32-bit&utmfl=6%20lite&utmdt=OpenTubeYT&utmhn=psp&utmp=/index.html&utmac=UA-1786689-11">
+</iframe><object id="ot" type="application/x-psp-extplugin"></object
+ ><input type="button" value="search" onclick="ytSearch(document.getElementById('search').value)"
+/><input type="button" value="play" onclick="var ret=action(document.f.grp,1);if(ret)alert(ret);"
+/><input type="button" value="download" onclick="var ret=action(document.f.grp,0);if(ret)alert(ret);"
+/></td></tr>
+<script>for(var i=0;i<15;i++)document.write('<tr><td class="d"><input type="radio" name="grp" id="r'+i+'"><i id="t'+i+'"/>-</i></input></tr>')</script>
+</form></table>
+</body>
+</html>

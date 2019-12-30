@@ -5,7 +5,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-
+#include "core.h"
 #include "modplay.h"
 #include "s3m.h"
 #include "effects.h"
@@ -18,7 +18,7 @@
 
 
 #define SAFE_MALLOC(dest, a) \
-	if(!(dest = myMalloc(a))) { \
+	if(!(dest = Malloc(a))) { \
 		MODFILE_Free(s3m); \
 		return -2; \
 	}
